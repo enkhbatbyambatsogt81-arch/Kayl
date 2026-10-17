@@ -1,0 +1,162 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Цонхтой интерфейс (GUI) - үндсэн",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/gui.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Squat (вэбкамер)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--exercise",
+                "squat"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Push-up (вэбкамер)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--exercise",
+                "pushup"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Чөлөөт горим (зорилгогүй, squat)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--exercise",
+                "squat",
+                "--reps",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Видео файл дээр шалгах",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--source",
+                "${input:videoPath}",
+                "--exercise",
+                "${input:exercise}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Демо (камергүй, командын мөр)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--source",
+                "demo"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Хатуу шалгуур + автоматаар таних (2.0, вэбкамер)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--level",
+                "strict",
+                "--auto"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Тест ажиллуулах",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "unittest",
+            "args": [
+                "discover",
+                "-s",
+                "tests",
+                "-v"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Хурд хэмжих (benchmark, вэбкамер)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/benchmark.py",
+            "args": [
+                "--source",
+                "0",
+                "--frames",
+                "300",
+                "--models",
+                "lite",
+                "full"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Шүүлтүүрийн харьцуулалт (1€ ба EMA, 2.0)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/evaluate_filters.py",
+            "args": [
+                "--sequences",
+                "10"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Логикийн нарийвчлал хэмжих (синтетик)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/evaluate_logic.py",
+            "args": [
+                "--sequences",
+                "20"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "videoPath",
+            "type": "promptString",
+            "description": "Видео файлын зам (жишээ: C:/Users/me/Videos/squat.mp4)"
+        },
+        {
+            "id": "exercise",
+            "type": "pickString",
+            "description": "Дасгал",
+            "options": [
+                "squat",
+                "pushup"
+            ],
+            "default": "squat"
+        }
+    ]
+}
