@@ -1,0 +1,239 @@
+"""Үндсэн цонх: зүүн талын цэс + хуудсууд, тохиргоо хадгалах, товчлуурын удирдлага."""
+
+from __future__ import annotations
+
+import sys
+from datetime import datetime
+
+import customtkinter as ctk
+
+from ..history import load_history
+from ..session import LOG_DIR
+from ..settings import load_settings, save_settings
+from .overlays import Onboarding
+from .pages import EX_TITLES, HelpPage, HistoryPage, HomePage, SummaryPage, WorkoutPage
+from .theme import ACCENT, ACCENT_SOFT, BG, BORDER, CARD, INSET, MUTED, SEG, SIDEBAR, TEXT, TEXT2, font
+
+NAV = [("home", "Дасгал"), ("history", "Түүх"), ("help", "Заавар")]
+APPEARANCE = {"dark": "Харанхуй", "light": "Цайвар", "system": "Систем"}
+
+
+class App(ctk.CTk):
+    def __init__(self, log_dir=LOG_DIR):
+        self.settings = load_settings()
+        ctk.set_appearance_mode(self.settings["appearance"])
+        ctk.set_default_color_theme("blue")
+        super().__init__(fg_color=BG)
+        self.log_dir = log_dir  # дасгалын CSV лог ба түүхийн хавтас
+        self.title("Дасгалын хэлбэр шалгагч")
+        self._fit_to_screen(1320, 820)
+        self.minsize(1000, 640)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self.current = None
+        self.fullscreen = False
+
+        # --- Зүүн цэс
+        self.sidebar = ctk.CTkFrame(self, fg_color=SIDEBAR, corner_radius=0, width=220)
+        self.sidebar.grid(row=0, column=0, sticky="nsw")
+        self.sidebar.grid_propagate(False)
+        self.sidebar.grid_columnconfigure(0, weight=1)
+        self.sidebar.grid_rowconfigure(10, weight=1)
+        ctk.CTkLabel(self.sidebar, text="Хэлбэр шалгагч", font=font(20, "bold"), text_color=TEXT, anchor="w").grid(
+            row=0, column=0, sticky="ew", padx=20, pady=(24, 0))
+        ctk.CTkLabel(self.sidebar, text="Squat · Push-up", font=font(13), text_color=MUTED, anchor="w").grid(
+            row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        self.nav = {}
+        for i, (key, label) in enumerate(NAV):
+            b = ctk.CTkButton(self.sidebar, text=label, anchor="w", height=42, font=font(15), corner_radius=10,
+                              fg_color="transparent", text_color=TEXT2, hover_color=INSET,
+                              command=lambda k=key: self.show(k))
+            b.grid(row=2 + i, column=0, sticky="ew", padx=12, pady=3)
+            self.nav[key] = b
+
+        # Таны явц: түүхээс товч дүн (дарвал Түүх хуудас нээгдэнэ)
+        self.progress = ctk.CTkFrame(self.sidebar, fg_color=CARD, corner_radius=12, border_width=1,
+                                     border_color=BORDER)
+        self.progress.grid(row=6, column=0, sticky="ew", padx=12, pady=(18, 0))
+        self.progress.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(self.progress, text="Таны явц", font=font(13, "bold"), text_color=TEXT, anchor="w").grid(
+            row=0, column=0, sticky="ew", padx=12, pady=(10, 2))
+        self.progress_lbl = ctk.CTkLabel(self.progress, text="", font=font(12), text_color=TEXT2, anchor="w",
+                                         justify="left", wraplength=170)
+        self.progress_lbl.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 10))
+        for w in (self.progress, *self.progress.winfo_children()):
+            w.bind("<Button-1>", lambda e: self.show("history"))
+        ctk.CTkLabel(self.sidebar, text="Өнгөний горим", font=font(12), text_color=MUTED, anchor="w").grid(
+            row=11, column=0, sticky="ew", padx=20)
+        self.appearance = ctk.CTkSegmentedButton(self.sidebar, values=list(APPEARANCE.values()),
+                                                 command=self._on_appearance, font=font(12), **SEG)
+        self.appearance.set(APPEARANCE[self.settings["appearance"]])
+        self.appearance.grid(row=12, column=0, sticky="ew", padx=14, pady=(4, 20))
+
+        # --- Хуудсууд
+        self.content = ctk.CTkFrame(self, fg_color="transparent")
+        self.content.grid(row=0, column=1, sticky="nsew", padx=20, pady=16)
+        self.content.grid_columnconfigure(0, weight=1)
+        self.content.grid_rowconfigure(0, weight=1)
+        self.pages = {
+            "home": HomePage(self.content, self),
+            "workout": WorkoutPage(self.content, self),
+            "summary": SummaryPage(self.content, self),
+            "history": HistoryPage(self.content, self),
+            "help": HelpPage(self.content, self),
+        }
+        self.onboarding = Onboarding(self, on_close=self._onboarding_done,
+                                     on_demo=lambda: self.start_workout(source="demo"))
+        self.bind("<KeyPress>", self._on_key)
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.show("home")
+        if not self.settings.get("onboarded"):
+            self.after(300, self.show_onboarding)  # анх нээхэд л гарна; «Заавар» хуудаснаас дахин нээж болно
+
+    def _fit_to_screen(self, w, h):
+        """Дэлгэц жижиг (эсвэл Windows-ийн томруулалт их) бол цонхыг дэлгэцэд багтаана."""
+        try:
+            scale = self._get_window_scaling()
+        except AttributeError:
+            scale = 1.0
+        sw, sh = self.winfo_screenwidth() / scale, self.winfo_screenheight() / scale
+        if sw < w + 40 or sh < h + 90:
+            w, h = int(min(w, sw - 20)), int(min(h, sh - 90))
+            self.geometry(f"{w}x{h}+0+0")
+            if sys.platform.startswith("win"):
+                self.after(50, lambda: self.state("zoomed"))  # бүтэн дэлгэцээр (taskbar-тай) нээнэ
+        else:
+            self.geometry(f"{w}x{h}+{int((sw - w) / 2)}+{int(max(0, (sh - h) / 2 - 30))}")
+
+    # ---- хуудас солих
+    def show(self, name):
+        if self.current == "workout" and name != "workout":
+            self.pages["workout"].stop()
+        for key, page in self.pages.items():
+            if key != name:
+                page.grid_remove()
+        page = self.pages[name]
+        page.grid(row=0, column=0, sticky="nsew")
+        self.current = name
+        # Дасгалын үед зүүн цэсийг нууж видеог томруулна
+        if name == "workout":
+            self.sidebar.grid_remove()
+        else:
+            self.sidebar.grid()
+        for key, b in self.nav.items():
+            active = key == name or (key == "home" and name == "summary")
+            b.configure(fg_color=ACCENT_SOFT if active else "transparent",
+                        text_color=ACCENT if active else TEXT2)
+        if name == "history":
+            page.refresh()
+        if name != "workout":
+            self.refresh_progress()
+        self.focus_set()
+
+    def refresh_progress(self):
+        records = load_history(self.log_dir)
+        if not records:
+            self.progress_lbl.configure(text="Одоогоор дасгал алга.\nЭхний дасгалаа эхлүүлээрэй!")
+            return
+        last = records[0]
+        now = datetime.now()
+        week = [r for r in records if (now - r.when).days < 7]
+        reps = sum(r.reps for r in week)
+        name = EX_TITLES.get(last.exercise, last.exercise).split(" (")[0]
+        lines = [f"Сүүлд {last.when:%m/%d}: {name}", f"{last.correct}/{last.reps} зөв давталт", "", "Сүүлийн 7 хоногт:"]
+        if week:
+            acc = sum(r.correct for r in week) / max(reps, 1)
+            lines += [f"{len(week)} дасгал · {reps} давталт", f"Нарийвчлал {acc * 100:.0f}%"]
+        else:
+            lines.append("дасгал хийгээгүй")
+        self.progress_lbl.configure(text="\n".join(lines))
+
+    def show_onboarding(self):
+        if self.current == "workout":
+            return
+        self.onboarding.open()
+
+    def _onboarding_done(self):
+        self.settings["onboarded"] = True
+        save_settings(self.settings)
+
+    def toggle_fullscreen(self, value=None):
+        self.fullscreen = (not self.fullscreen) if value is None else bool(value)
+        self.attributes("-fullscreen", self.fullscreen)
+        self.pages["workout"].full_btn.configure(text="Цонх (F11)" if self.fullscreen else "Бүтэн дэлгэц (F11)")
+
+    def start_workout(self, source=None):
+        """source өгвөл (жишээ нь камер нээгдээгүй үед «демо») тохиргоог өөрчлөхгүйгээр тэр эх үүсвэрээр эхэлнэ."""
+        s = self.settings
+        if source is None and s["source"] == "video" and not s["video_path"]:
+            self.show("home")
+            self.pages["home"].show_notice("Эхлээд видео файлаа сонгоно уу.")
+            return
+        save_settings(s)
+        if self.current == "workout":
+            self.pages["workout"].stop()
+        self.show("workout")
+        self.pages["workout"].start(dict(s, source=source) if source else s)
+
+    def stop_workout(self):
+        self.show("home")
+
+    def show_summary(self, ended=False):
+        if self.current != "workout":
+            return
+        engine, csv_path, last = self.pages["workout"].stop()
+        workouts = [w for w in engine.workouts.values() if w.reps] if engine else []
+        if ended and not workouts:
+            self.show("home")
+            self.pages["home"].show_notice("Бичлэг дууслаа. Тоологдсон давталт алга.")
+            return
+        self.pages["summary"].show(workouts, last.t if last else 0.0, csv_path)
+        self.show("summary")
+
+    # ---- товчлуур
+    def _on_key(self, e):
+        k = e.keysym.lower()
+        if self.onboarding.visible:
+            self.onboarding.on_key(k)
+            return "break"
+        page = self.pages["workout"]
+        if self.current == "workout" and page.confirm.visible:
+            if k == "escape":
+                page.confirm_continue()
+            elif k == "return":
+                page.confirm_summary()
+            return "break"
+        if k == "f11":
+            self.toggle_fullscreen()
+            return "break"
+        if k == "escape" and self.fullscreen:  # эхлээд бүтэн дэлгэцээс гарна
+            self.toggle_fullscreen(False)
+            return "break"
+        if self.current == "workout":
+            actions = {"space": page.skip, "p": page.toggle_pause, "s": page.toggle_sound, "e": page.finish,
+                       "m": page.toggle_mirror, "escape": page.request_leave,
+                       "1": lambda: page.set_exercise("squat"), "2": lambda: page.set_exercise("pushup")}
+            if k in actions:
+                actions[k]()
+                return "break"
+        elif self.current == "home" and k == "return":
+            self.start_workout()
+
+    def _on_appearance(self, label):
+        mode = next(k for k, v in APPEARANCE.items() if v == label)
+        self.settings["appearance"] = mode
+        ctk.set_appearance_mode(mode)
+        save_settings(self.settings)
+        # tk.Canvas дээрх графикууд өнгөө өөрөө солихгүй тул дахин зурна
+        self.after(50, lambda: [p.refresh_theme() for p in self.pages.values() if hasattr(p, "refresh_theme")])
+
+    def on_close(self):
+        if self.current == "workout":
+            self.pages["workout"].stop()
+        save_settings(self.settings)
+        self.destroy()
+
+
+def run():
+    app = App()
+    app.mainloop()
