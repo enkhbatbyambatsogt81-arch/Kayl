@@ -4,7 +4,7 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-                <mxCell id="sys" value="Номын сангийн&lt;br&gt;удирдлагын систем" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=12;" vertex="1" parent="1"><mxGeometry x="500" y="80" width="360" height="420" as="geometry"/></mxCell>
+                <mxCell id="sys" value="Номын сангийн удирдлагын систем" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=12;" vertex="1" parent="1"><mxGeometry x="450" y="80" width="460" height="420" as="geometry"/></mxCell>
         <mxCell id="a1" value="Оюутан / уншигч" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1"><mxGeometry x="20" y="100" width="190" height="60" as="geometry"/></mxCell>
         <mxCell id="a2" value="Багш / судлаач" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1"><mxGeometry x="20" y="260" width="190" height="60" as="geometry"/></mxCell>
         <mxCell id="a3" value="Номын санч" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1"><mxGeometry x="20" y="420" width="190" height="60" as="geometry"/></mxCell>
@@ -23,6 +23,7 @@
         <mxCell id="e19" value="Хугацаа хэтэрсэн төлбөрийн тооцоо" style="endArrow=classic;html=1;rounded=0;fontSize=12;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5357;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="sys" target="a5"><mxGeometry relative="1" as="geometry"/></mxCell>
         <mxCell id="e20" value="Зээлэлтийн дүрэм" style="endArrow=classic;html=1;rounded=0;fontSize=12;labelBackgroundColor=#ffffff;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.8452;entryDx=0;entryDy=0;" edge="1" parent="1" source="a6" target="sys"><mxGeometry relative="1" as="geometry"/></mxCell>
         <mxCell id="e21" value="Үйл ажиллагааны тайлан" style="endArrow=classic;html=1;rounded=0;fontSize=12;labelBackgroundColor=#ffffff;exitX=1;exitY=0.9167;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="sys" target="a6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="note" value="Энэ нь төслийн эхний загвар. Оролцогч талуудтай ярилцсаны дараа дүрэм, мэдээллийн урсгалаа баталгаажуулна." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1"><mxGeometry x="20" y="530" width="1000" height="30" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
