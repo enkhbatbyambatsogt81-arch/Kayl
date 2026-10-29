@@ -21,6 +21,7 @@ import sys
 
 import cv2
 
+from form_checker import safe_console
 from form_checker.engine import WorkoutEngine
 from form_checker.session import print_summary
 
@@ -122,4 +123,5 @@ def main():
 
 
 if __name__ == "__main__":
+    safe_console()
     sys.exit(main())

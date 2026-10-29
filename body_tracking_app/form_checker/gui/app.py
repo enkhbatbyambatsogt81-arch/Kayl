@@ -3,31 +3,56 @@
 from __future__ import annotations
 
 import sys
+import tkinter as tk
 from datetime import datetime
 
 import customtkinter as ctk
+from PIL import Image, ImageDraw, ImageTk
 
+from .. import __version__
 from ..history import load_history
 from ..session import LOG_DIR
 from ..settings import load_settings, save_settings
+from . import ctk_fixes
 from .overlays import Onboarding
 from .pages import EX_TITLES, HelpPage, HistoryPage, HomePage, SummaryPage, WorkoutPage
 from .theme import ACCENT, ACCENT_SOFT, BG, BORDER, CARD, INSET, MUTED, SEG, SIDEBAR, TEXT, TEXT2, font
+from .widgets import stick_figure
 
 NAV = [("home", "Дасгал"), ("history", "Түүх"), ("help", "Заавар")]
 APPEARANCE = {"dark": "Харанхуй", "light": "Цайвар", "system": "Систем"}
+# Цонхны элементүүдийн хэмжээ. Linux-д дэлгэцийн томруулалтыг (HiDPI) CustomTkinter өөрөө мэддэггүй,
+# жижиг дэлгэцтэй зөөврийн компьютерт эсрэгээрээ багасгах хэрэгтэй болдог.
+SCALES = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
+IS_MAC = sys.platform == "darwin"
+
+
+def scale_label(v):
+    return f"{round(v * 100)}%"
+
+
+def app_icon(size=128):
+    """Цонх, taskbar-ын дүрс: цэнхэр дөрвөлжин дээр squat хийж буй цагаан дүрс."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(img).rounded_rectangle([0, 0, size - 1, size - 1], radius=size // 5, fill=(42, 120, 214, 255))
+    pad = size // 8
+    img.alpha_composite(stick_figure("squat", (size - 2 * pad, size - 2 * pad), color=(255, 255, 255)), (pad, pad))
+    return img
 
 
 class App(ctk.CTk):
     def __init__(self, log_dir=LOG_DIR):
+        ctk_fixes.apply()
         self.settings = load_settings()
         ctk.set_appearance_mode(self.settings["appearance"])
         ctk.set_default_color_theme("blue")
+        ctk.set_widget_scaling(self.settings["ui_scale"])
         super().__init__(fg_color=BG)
         self.log_dir = log_dir  # дасгалын CSV лог ба түүхийн хавтас
         self.title("Дасгалын хэлбэр шалгагч")
-        self._fit_to_screen(1320, 820)
-        self.minsize(1000, 640)
+        self._set_icon()
+        ui = self.settings["ui_scale"]
+        self._fit_to_screen(round(1320 * ui), round(820 * ui))
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.current = None
@@ -41,8 +66,8 @@ class App(ctk.CTk):
         self.sidebar.grid_rowconfigure(10, weight=1)
         ctk.CTkLabel(self.sidebar, text="Хэлбэр шалгагч", font=font(20, "bold"), text_color=TEXT, anchor="w").grid(
             row=0, column=0, sticky="ew", padx=20, pady=(24, 0))
-        ctk.CTkLabel(self.sidebar, text="Squat · Push-up", font=font(13), text_color=MUTED, anchor="w").grid(
-            row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        ctk.CTkLabel(self.sidebar, text=f"Squat · Push-up · v{__version__}", font=font(13), text_color=MUTED,
+                     anchor="w").grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
         self.nav = {}
         for i, (key, label) in enumerate(NAV):
             b = ctk.CTkButton(self.sidebar, text=label, anchor="w", height=42, font=font(15), corner_radius=10,
@@ -68,7 +93,16 @@ class App(ctk.CTk):
         self.appearance = ctk.CTkSegmentedButton(self.sidebar, values=list(APPEARANCE.values()),
                                                  command=self._on_appearance, font=font(12), **SEG)
         self.appearance.set(APPEARANCE[self.settings["appearance"]])
-        self.appearance.grid(row=12, column=0, sticky="ew", padx=14, pady=(4, 20))
+        self.appearance.grid(row=12, column=0, sticky="ew", padx=14, pady=(4, 12))
+        size_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        size_row.grid(row=13, column=0, sticky="ew", padx=(20, 14), pady=(0, 20))
+        ctk.CTkLabel(size_row, text="Хэмжээ", font=font(12), text_color=MUTED).pack(side="left")
+        current = scale_label(self.settings["ui_scale"])
+        labels = [scale_label(v) for v in SCALES]
+        self.scale_menu = ctk.CTkOptionMenu(size_row, values=labels if current in labels else [*labels, current],
+                                            width=92, height=28, font=font(12), command=self._on_scale)
+        self.scale_menu.set(current)
+        self.scale_menu.pack(side="right")
 
         # --- Хуудсууд
         self.content = ctk.CTkFrame(self, fg_color="transparent")
@@ -86,9 +120,31 @@ class App(ctk.CTk):
                                      on_demo=lambda: self.start_workout(source="demo"))
         self.bind("<KeyPress>", self._on_key)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+        if IS_MAC:
+            # Cmd+Q эсвэл цэсний Quit: цонхны × товчтой адил камерыг зогсоож, тохиргоог хадгална
+            self.createcommand("tk::mac::Quit", self.on_close)
+            # Terminal-аас эхлүүлэхэд цонх ард нь нээгдэх нь бий
+            self.after(150, self._bring_to_front)
         self.show("home")
         if not self.settings.get("onboarded"):
             self.after(300, self.show_onboarding)  # анх нээхэд л гарна; «Заавар» хуудаснаас дахин нээж болно
+
+    def _set_icon(self):
+        try:
+            self._icon = ImageTk.PhotoImage(app_icon(), master=self)
+            self.iconphoto(True, self._icon)
+            # Windows-д CustomTkinter 0.2 секундын дараа өөрийн дүрсийг тавьдаг. Хоосон iconbitmap()
+            # дуудлага юуг ч өөрчлөхгүй, харин түүнийг дүрсээ солихгүй болгоно.
+            if sys.platform.startswith("win"):
+                self.iconbitmap()
+        except (tk.TclError, OSError, ImportError):
+            pass  # дүрсгүй байсан ч апп ажиллана
+
+    def _bring_to_front(self):
+        self.lift()
+        self.attributes("-topmost", True)
+        self.after(400, lambda: self.attributes("-topmost", False))
+        self.focus_force()
 
     def _fit_to_screen(self, w, h):
         """Дэлгэц жижиг (эсвэл Windows-ийн томруулалт их) бол цонхыг дэлгэцэд багтаана."""
@@ -97,6 +153,8 @@ class App(ctk.CTk):
         except AttributeError:
             scale = 1.0
         sw, sh = self.winfo_screenwidth() / scale, self.winfo_screenheight() / scale
+        # 1366×768, 125% томруулалттай зөөврийн компьютерт 1000×640 хамгийн бага хэмжээ дэлгэцээс томордог
+        self.minsize(int(min(1000, sw - 20)), int(min(640, sh - 90)))
         if sw < w + 40 or sh < h + 90:
             w, h = int(min(w, sw - 20)), int(min(h, sh - 90))
             self.geometry(f"{w}x{h}+0+0")
@@ -160,11 +218,14 @@ class App(ctk.CTk):
     def toggle_fullscreen(self, value=None):
         self.fullscreen = (not self.fullscreen) if value is None else bool(value)
         self.attributes("-fullscreen", self.fullscreen)
-        self.pages["workout"].full_btn.configure(text="Цонх (F11)" if self.fullscreen else "Бүтэн дэлгэц (F11)")
+        self.pages["workout"].full_btn.configure(text="Цонх (F)" if self.fullscreen else "Бүтэн дэлгэц (F)")
 
     def start_workout(self, source=None):
         """source өгвөл (жишээ нь камер нээгдээгүй үед «демо») тохиргоог өөрчлөхгүйгээр тэр эх үүсвэрээр эхэлнэ."""
         s = self.settings
+        if self.pages["home"].scanning:  # «Камер хайх» камеруудыг нээж байх үед зэрэг нээхгүй
+            self.pages["home"].show_notice("Камер хайж дуустал түр хүлээнэ үү.")
+            return
         if source is None and s["source"] == "video" and not s["video_path"]:
             self.show("home")
             self.pages["home"].show_notice("Эхлээд видео файлаа сонгоно уу.")
@@ -203,7 +264,8 @@ class App(ctk.CTk):
             elif k == "return":
                 page.confirm_summary()
             return "break"
-        if k == "f11":
+        # F11 (Windows, Linux) эсвэл дасгалын үед F: macOS-д F11 ихэвчлэн системд эзлэгдсэн байдаг
+        if k == "f11" or (k == "f" and self.current == "workout"):
             self.toggle_fullscreen()
             return "break"
         if k == "escape" and self.fullscreen:  # эхлээд бүтэн дэлгэцээс гарна
@@ -226,6 +288,12 @@ class App(ctk.CTk):
         save_settings(self.settings)
         # tk.Canvas дээрх графикууд өнгөө өөрөө солихгүй тул дахин зурна
         self.after(50, lambda: [p.refresh_theme() for p in self.pages.values() if hasattr(p, "refresh_theme")])
+
+    def _on_scale(self, label):
+        scale = int(label.rstrip("%")) / 100
+        self.settings["ui_scale"] = scale
+        ctk.set_widget_scaling(scale)
+        save_settings(self.settings)
 
     def on_close(self):
         if self.current == "workout":

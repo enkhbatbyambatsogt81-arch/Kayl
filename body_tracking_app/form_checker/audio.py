@@ -3,7 +3,7 @@
 Дасгал хийж байхдаа хүн дэлгэц рүү байнга харж чаддаггүй (ялангуяа push-up хийхэд),
 тиймээс гол үйл явдлыг дуугаар давхар мэдэгдэнэ. Нэмэлт сан шаардахгүй:
 дууг numpy-гаар WAV файл болгон үүсгээд үйлдлийн системийн тоглуулагчаар тоглуулна
-(Windows: winsound, macOS: afplay, Linux: paplay/aplay). Тоглуулах боломжгүй бол чимээгүй ажиллана.
+(Windows: winsound, macOS: afplay, Linux: paplay/pw-play/aplay). Тоглуулах боломжгүй бол чимээгүй ажиллана.
 """
 
 from __future__ import annotations
@@ -90,7 +90,8 @@ class SoundPlayer:
                 return ("winsound", winsound)
             except ImportError:
                 return None
-        for cmd in (["afplay"], ["paplay"], ["aplay", "-q"]):
+        # macOS: afplay; Linux: PulseAudio, PipeWire эсвэл ALSA-ийн тоглуулагч
+        for cmd in (["afplay"], ["paplay"], ["pw-play"], ["aplay", "-q"]):
             if shutil.which(cmd[0]):
                 return ("cmd", cmd)
         return None

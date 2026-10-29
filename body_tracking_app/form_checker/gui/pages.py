@@ -5,18 +5,20 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
 import tkinter as tk
 from tkinter import filedialog
 
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
+from ..camera import camera_help, find_cameras
 from ..config import PushupConfig, SquatConfig
 from ..engine import WorkoutEngine
 from ..history import compare_with_history, load_history
 from ..messages import TIPS, WARNING_TITLES, t
-from .theme import (ACCENT, ACCENT_HOVER, ACCENT_SOFT, BAD, BORDER, CARD, GOOD, INFO, INSET, LEVEL_COLORS, MUTED,
-                    PHASES, SEG, TEXT, TEXT2, WARN, font)
+from .theme import (ACCENT, ACCENT_SOFT, BAD, BORDER, CARD, GOOD, INFO, INSET, LEVEL_COLORS, MUTED, PHASES, PRIMARY,
+                    SECONDARY, SEG, TEXT, TEXT2, WARN, font)
 from .overlays import ConfirmCard, SetupChecklist
 from .widgets import AngleTrace, Card, HistoryChart, RepChart, RepDots, StatTile, stick_figure
 from .worker import EngineWorker
@@ -37,6 +39,10 @@ PHASE_HINTS = {
     "done": "Дүнгийн хуудас нээгдэж байна...",
 }
 SOURCES = {"camera": "Вэбкамер", "video": "Видео файл", "demo": "Демо (камергүй)"}
+KEY_HINT = "Enter = эхлэх.  Дасгалын үед: Space алгасах · P түр зогсоох · E дуусгах · F бүтэн дэлгэц · Esc буцах"
+CAMERA_NOTE = "0 нь ихэвчлэн компьютерийн өөрийн камер. Олон камертай бол «Камер хайх» дарж ажиллаж буйг нь олно."
+DEMO_NOTE = ("Камергүйгээр зохиомол хүн зөв ба алдаатай давталт хийнэ. Апп яг камертай үеийнх шиг тоолж, "
+             "үнэлнэ. Хичээл дээр үзүүлэх эсвэл камер ажиллахгүй үед туршихад тохиромжтой.")
 HISTORY_FILTERS = {"Бүгд": None, "Squat": "squat", "Push-up": "pushup"}
 MODELS = {"lite": "Хурдан (lite)", "full": "Нарийн (full)"}
 # Бэлэн зорилго: (нэг сетийн давталт, сет, амралт секунд). Анх удаа ашиглагч гурван гулсуурыг тааруулахгүйгээр
@@ -86,6 +92,25 @@ def section_title(master, text):
     return ctk.CTkLabel(master, text=text, font=font(17, "bold"), text_color=TEXT, anchor="w")
 
 
+def step_title(master, number, text):
+    """Нүүр хуудасны алхмын гарчиг: дугуйлсан дугаар + нэр (1 Дасгал, 2 Зорилго, 3 Эх үүсвэр)."""
+    f = ctk.CTkFrame(master, fg_color="transparent")
+    ctk.CTkLabel(f, text=str(number), font=font(13, "bold"), text_color="#ffffff", fg_color=ACCENT,
+                 corner_radius=12, width=24, height=24).pack(side="left")
+    ctk.CTkLabel(f, text=text, font=font(17, "bold"), text_color=TEXT, anchor="w").pack(side="left", padx=(10, 0))
+    return f
+
+
+def auto_wrap(label, container, pad):
+    """Урт тайлбарыг савныхаа өргөнд тааруулж мөр ороох (цонхны өргөн, «Хэмжээ» өөрчлөгдөхөд)."""
+    def on_resize(e):
+        scale = ctk.ScalingTracker.get_widget_scaling(label)
+        width = max(120, int(e.width / scale) - pad)
+        if label.cget("wraplength") != width:
+            label.configure(wraplength=width)
+    container.bind("<Configure>", on_resize, add="+")
+
+
 # =============================================================================
 # Нүүр хуудас
 # =============================================================================
@@ -96,17 +121,39 @@ class ExerciseCard(Card):
         self.grid_columnconfigure(1, weight=1)
         icon = ctk.CTkImage(light_image=stick_figure(name, (150, 96), color=(42, 120, 214)),
                             dark_image=stick_figure(name, (150, 96), color=(120, 170, 235)), size=(150, 96))
-        ctk.CTkLabel(self, text="", image=icon).grid(row=0, column=0, rowspan=3, padx=(16, 8), pady=16)
-        ctk.CTkLabel(self, text=EX_TITLES[name], font=font(19, "bold"), text_color=TEXT, anchor="w",
-                     justify="left", wraplength=230).grid(row=0, column=1, sticky="sw", padx=(8, 96), pady=(18, 2))
+        self.pic = ctk.CTkLabel(self, text="", image=icon)
+        self.pic.grid(row=0, column=0, rowspan=3, padx=(16, 8), pady=16)
+        title = ctk.CTkLabel(self, text=EX_TITLES[name], font=font(19, "bold"), text_color=TEXT, anchor="w",
+                             justify="left", wraplength=230)
+        title.grid(row=0, column=1, sticky="sw", padx=(8, 96), pady=(18, 2))
         checks, camera = EX_INFO[name]
-        ctk.CTkLabel(self, text=checks, font=font(13), text_color=TEXT2, anchor="w", justify="left",
-                     wraplength=270).grid(row=1, column=1, sticky="w", padx=(8, 16))
-        ctk.CTkLabel(self, text=camera, font=font(13), text_color=MUTED, anchor="w", justify="left",
-                     wraplength=270).grid(row=2, column=1, sticky="nw", padx=(8, 16), pady=(4, 16))
+        checks_lbl = ctk.CTkLabel(self, text=checks, font=font(13), text_color=TEXT2, anchor="w", justify="left",
+                                  wraplength=270)
+        checks_lbl.grid(row=1, column=1, sticky="w", padx=(8, 16))
+        camera_lbl = ctk.CTkLabel(self, text=camera, font=font(13), text_color=MUTED, anchor="w", justify="left",
+                                  wraplength=270)
+        camera_lbl.grid(row=2, column=1, sticky="nw", padx=(8, 16), pady=(4, 16))
+        self._texts = ((title, 96), (checks_lbl, 16), (camera_lbl, 16))   # (бичиг, баруун талын зай)
+        self._narrow = None
+        self.bind("<Configure>", self._on_resize, add="+")
         self.check = ctk.CTkLabel(self, text="", font=font(13, "bold"), text_color="#ffffff", fg_color=ACCENT,
                                   corner_radius=10, width=86, height=24)
         self._bind_all(self, lambda e: on_select(name))
+
+    def _on_resize(self, e):
+        """Нарийн цонхонд (жишээ нь 1366×768, 125%) зургийг нууж, бичгийг картын өргөнд ороно."""
+        width = e.width / ctk.ScalingTracker.get_widget_scaling(self)
+        narrow = width < 430
+        if narrow != self._narrow:
+            self._narrow = narrow
+            self.pic.grid_remove() if narrow else self.pic.grid()
+            for lbl, right in self._texts:
+                lbl.grid(padx=(18 if narrow else 8, right))
+        left = 18 if narrow else 16 + 150 + 8 + 8   # зураг харагдвал түүний өргөн ба зай
+        for lbl, right in self._texts:
+            wrap = max(100, int(width - left - right - 8))
+            if lbl.cget("wraplength") != wrap:
+                lbl.configure(wraplength=wrap)
 
     def _bind_all(self, w, fn):
         w.bind("<Button-1>", fn)
@@ -127,93 +174,118 @@ class ExerciseCard(Card):
             self.check.place_forget()
 
 
-class HomePage(ctk.CTkScrollableFrame):
+class HomePage(ctk.CTkFrame):
+    """Дээд хэсэг нь гүйлгэгдэнэ; доод «Эхлэх» самбар цонх намхан (эсвэл томруулсан) үед ч үргэлж харагдана."""
+
     def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
         self.app = app
+        self.scanning = False      # «Камер хайх» ажиллаж байгаа эсэх (энэ үед дасгал эхлүүлэхгүй)
+        self._src_kind = None
         s = app.settings
-        self.grid_columnconfigure((0, 1), weight=1, uniform="col")
-        header(self, "Дасгалаа сонго",
-               "Камерын өмнө зогсоход апп таны хөдөлгөөнийг шалгаж, зөв эсэхийг шууд хэлнэ.").grid(
-            row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 16))
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        body = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        body.grid(row=0, column=0, sticky="nsew")
+        body.grid_columnconfigure((0, 1), weight=1, uniform="col")
+        header(body, "Шинэ дасгал", "Дасгал, зорилго, эх үүсвэрээ сонгоод «Эхлэх» дарна.").grid(
+            row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 10))
 
+        # --- 1. Дасгал
+        step_title(body, 1, "Дасгал").grid(row=1, column=0, columnspan=2, sticky="w", padx=10, pady=(4, 0))
         self.cards = {}
         for col, name in enumerate(("squat", "pushup")):
-            card = ExerciseCard(self, name, self.select)
-            card.grid(row=1, column=col, sticky="nsew", padx=8, pady=8)
+            card = ExerciseCard(body, name, self.select)
+            card.grid(row=2, column=col, sticky="nsew", padx=8, pady=8)
             self.cards[name] = card
 
-        # --- Зорилго
-        goal = Card(self)
-        goal.grid(row=2, column=0, sticky="nsew", padx=8, pady=8)
+        # --- 2. Зорилго
+        goal = Card(body)
+        goal.grid(row=3, column=0, sticky="nsew", padx=8, pady=8)
         goal.grid_columnconfigure(0, weight=1)
-        section_title(goal, "Зорилго").grid(row=0, column=0, sticky="w", padx=18, pady=(16, 6))
+        step_title(goal, 2, "Зорилго").grid(row=0, column=0, sticky="w", padx=18, pady=(16, 8))
         self.preset = ctk.CTkSegmentedButton(goal, values=[*PRESETS, CUSTOM], command=self._on_preset,
                                              font=font(14), **SEG)
         self.preset.grid(row=1, column=0, sticky="ew", padx=18, pady=(2, 6))
         self.free = ctk.CTkSwitch(goal, text="Чөлөөт горим (зорилго, амралтгүй)", font=font(14),
                                   command=self._on_free)
         self.free.grid(row=2, column=0, sticky="w", padx=18, pady=6)
+        self.goal_note = ctk.CTkLabel(goal, text="", font=font(12), text_color=MUTED, anchor="w", justify="left")
         self.reps_lbl = ctk.CTkLabel(goal, text="", font=font(14), text_color=TEXT2, anchor="w")
-        self.reps_lbl.grid(row=3, column=0, sticky="w", padx=18, pady=(8, 0))
+        self.reps_lbl.grid(row=4, column=0, sticky="w", padx=18, pady=(8, 0))
         self.reps = ctk.CTkSlider(goal, from_=3, to=30, number_of_steps=27, command=self._on_reps)
-        self.reps.grid(row=4, column=0, sticky="ew", padx=18, pady=4)
-        ctk.CTkLabel(goal, text="Сетийн тоо", font=font(14), text_color=TEXT2, anchor="w").grid(
-            row=5, column=0, sticky="w", padx=18, pady=(8, 0))
+        self.reps.grid(row=5, column=0, sticky="ew", padx=18, pady=4)
+        self.sets_lbl = ctk.CTkLabel(goal, text="Сетийн тоо", font=font(14), text_color=TEXT2, anchor="w")
+        self.sets_lbl.grid(row=6, column=0, sticky="w", padx=18, pady=(8, 0))
         self.sets = ctk.CTkSegmentedButton(goal, values=["1", "2", "3", "4", "5"], command=self._on_sets,
                                            font=font(14), **SEG)
-        self.sets.grid(row=6, column=0, sticky="ew", padx=18, pady=4)
+        self.sets.grid(row=7, column=0, sticky="ew", padx=18, pady=4)
         self.rest_lbl = ctk.CTkLabel(goal, text="", font=font(14), text_color=TEXT2, anchor="w")
-        self.rest_lbl.grid(row=7, column=0, sticky="w", padx=18, pady=(8, 0))
+        self.rest_lbl.grid(row=8, column=0, sticky="w", padx=18, pady=(8, 0))
         self.rest = ctk.CTkSlider(goal, from_=15, to=180, number_of_steps=11, command=self._on_rest)
-        self.rest.grid(row=8, column=0, sticky="ew", padx=18, pady=(4, 18))
+        self.rest.grid(row=9, column=0, sticky="ew", padx=18, pady=(4, 18))
 
-        # --- Камер ба тохиргоо
-        opt = Card(self)
-        opt.grid(row=2, column=1, sticky="nsew", padx=8, pady=8)
+        # --- 3. Эх үүсвэр ба тохиргоо
+        opt = Card(body)
+        opt.grid(row=3, column=1, sticky="nsew", padx=8, pady=8)
         opt.grid_columnconfigure(1, weight=1)
-        section_title(opt, "Камер ба тохиргоо").grid(row=0, column=0, columnspan=2, sticky="w", padx=18,
-                                                     pady=(16, 6))
+        step_title(opt, 3, "Эх үүсвэр ба тохиргоо").grid(row=0, column=0, columnspan=2, sticky="w", padx=18,
+                                                         pady=(16, 8))
         self.source = ctk.CTkSegmentedButton(opt, values=list(SOURCES.values()), command=self._on_source,
                                              font=font(14), **SEG)
-        self.source.grid(row=1, column=0, columnspan=2, sticky="ew", padx=18, pady=6)
-        self.cam_lbl = ctk.CTkLabel(opt, text="Камерын дугаар", font=font(14), text_color=TEXT2)
-        self.cam_lbl.grid(row=2, column=0, sticky="w", padx=18, pady=6)
-        self.cam = ctk.CTkOptionMenu(opt, values=["0", "1", "2", "3"], width=90, command=self._on_cam)
-        self.cam.grid(row=2, column=1, sticky="w", padx=(0, 18), pady=6)
-        self.video_btn = ctk.CTkButton(opt, text="Файл сонгох...", width=130, command=self._pick_video)
-        self.video_btn.grid(row=3, column=0, sticky="w", padx=18, pady=6)
-        self.video_lbl = ctk.CTkLabel(opt, text="", font=font(13), text_color=MUTED, anchor="w")
-        self.video_lbl.grid(row=3, column=1, sticky="ew", padx=(0, 18), pady=6)
-        ctk.CTkLabel(opt, text="Загвар", font=font(14), text_color=TEXT2).grid(row=4, column=0, sticky="w",
+        self.source.grid(row=1, column=0, columnspan=2, sticky="ew", padx=18, pady=(2, 6))
+        # Сонгосон эх үүсвэрт хамаатай тохиргоо л харагдана (_show_source)
+        self.src_box = ctk.CTkFrame(opt, fg_color=INSET, corner_radius=10)
+        self.src_box.grid(row=2, column=0, columnspan=2, sticky="ew", padx=18, pady=(4, 8))
+        self.src_box.grid_columnconfigure(2, weight=1)
+        inner = dict(SECONDARY, hover_color=BORDER)
+        self.cam_lbl = ctk.CTkLabel(self.src_box, text="Камер", font=font(14), text_color=TEXT2)
+        self.cam = ctk.CTkOptionMenu(self.src_box, values=["0", "1", "2", "3"], width=80, command=self._on_cam)
+        self.scan_btn = ctk.CTkButton(self.src_box, text="Камер хайх", width=120, command=self.scan_cameras,
+                                      **inner)
+        self.cam_status = ctk.CTkLabel(self.src_box, text=CAMERA_NOTE, font=font(12), text_color=MUTED,
+                                       anchor="w", justify="left")
+        self.mirror = ctk.CTkSwitch(self.src_box, text="Толин дүрс (толинд харж байгаа мэт)", font=font(14),
+                                    command=self._on_switches)
+        self.video_btn = ctk.CTkButton(self.src_box, text="Файл сонгох...", width=130, command=self._pick_video,
+                                       **inner)
+        self.video_lbl = ctk.CTkLabel(self.src_box, text="", font=font(13), text_color=TEXT2, anchor="w")
+        self.demo_lbl = ctk.CTkLabel(self.src_box, text=DEMO_NOTE, font=font(13), text_color=TEXT2, anchor="w",
+                                     justify="left")
+        for lbl in (self.cam_status, self.demo_lbl):
+            auto_wrap(lbl, self.src_box, 30)
+        ctk.CTkLabel(opt, text="Загвар", font=font(14), text_color=TEXT2).grid(row=3, column=0, sticky="w",
                                                                               padx=18, pady=6)
         self.model = ctk.CTkSegmentedButton(opt, values=list(MODELS.values()), command=self._on_model,
                                             font=font(13), **SEG)
-        self.model.grid(row=4, column=1, sticky="ew", padx=(0, 18), pady=6)
-        ctk.CTkLabel(opt, text="Шалгуур", font=font(14), text_color=TEXT2).grid(row=5, column=0, sticky="w",
+        self.model.grid(row=3, column=1, sticky="ew", padx=(0, 18), pady=6)
+        ctk.CTkLabel(opt, text="Шалгуур", font=font(14), text_color=TEXT2).grid(row=4, column=0, sticky="w",
                                                                                padx=18, pady=6)
         self.level = ctk.CTkSegmentedButton(opt, values=list(LEVEL_LABELS.values()), command=self._on_level,
                                             font=font(13), **SEG)
-        self.level.grid(row=5, column=1, sticky="ew", padx=(0, 18), pady=6)
+        self.level.grid(row=4, column=1, sticky="ew", padx=(0, 18), pady=6)
         self.level_lbl = ctk.CTkLabel(opt, text="", font=font(12), text_color=MUTED, anchor="w", justify="left")
-        self.level_lbl.grid(row=6, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 4))
+        self.level_lbl.grid(row=5, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 4))
+        auto_wrap(self.level_lbl, opt, 40)
         self.auto = ctk.CTkSwitch(opt, text="Дасгалыг автоматаар таних", font=font(14), command=self._on_switches)
-        self.auto.grid(row=7, column=0, columnspan=2, sticky="w", padx=18, pady=6)
+        self.auto.grid(row=6, column=0, columnspan=2, sticky="w", padx=18, pady=6)
         self.sound = ctk.CTkSwitch(opt, text="Дуут дохио", font=font(14), command=self._on_switches)
-        self.sound.grid(row=8, column=0, columnspan=2, sticky="w", padx=18, pady=6)
-        self.mirror = ctk.CTkSwitch(opt, text="Толин дүрс (вэбкамер)", font=font(14), command=self._on_switches)
-        self.mirror.grid(row=9, column=0, columnspan=2, sticky="w", padx=18, pady=(6, 18))
+        self.sound.grid(row=7, column=0, columnspan=2, sticky="w", padx=18, pady=(6, 18))
 
-        # --- Эхлэх
-        bottom = ctk.CTkFrame(self, fg_color="transparent")
-        bottom.grid(row=3, column=0, columnspan=2, sticky="ew", padx=8, pady=(12, 8))
-        bottom.grid_columnconfigure(1, weight=1)
-        self.start_btn = ctk.CTkButton(bottom, text="Эхлэх  ▶", font=font(20, "bold"), height=56, width=240,
-                                       corner_radius=14, fg_color=ACCENT, hover_color=ACCENT_HOVER,
-                                       command=app.start_workout)
-        self.start_btn.grid(row=0, column=0, sticky="w")
-        self.notice = ctk.CTkLabel(bottom, text="", font=font(13), text_color=TEXT2, anchor="w", justify="left")
-        self.notice.grid(row=0, column=1, sticky="w", padx=16)
+        # --- Доод самбар: юу сонгосныг товч харуулаад эхлүүлнэ
+        bar = Card(self)
+        bar.grid(row=1, column=0, sticky="ew", padx=8, pady=(10, 0))
+        bar.grid_columnconfigure(0, weight=1)
+        self.summary_lbl = ctk.CTkLabel(bar, text="", font=font(15, "bold"), text_color=TEXT, anchor="w",
+                                        justify="left")
+        self.summary_lbl.grid(row=0, column=0, sticky="sw", padx=18, pady=(14, 0))
+        self.notice = ctk.CTkLabel(bar, text="", font=font(13), text_color=TEXT2, anchor="w", justify="left")
+        self.notice.grid(row=1, column=0, sticky="nw", padx=18, pady=(2, 14))
+        for lbl in (self.summary_lbl, self.notice):
+            auto_wrap(lbl, bar, 300)
+        self.start_btn = ctk.CTkButton(bar, text="Эхлэх  ▶", font=font(20, "bold"), height=52, width=230,
+                                       corner_radius=12, command=app.start_workout, **PRIMARY)
+        self.start_btn.grid(row=0, column=1, rowspan=2, padx=(12, 14), pady=12)
 
         self._load(s)
 
@@ -238,28 +310,62 @@ class HomePage(ctk.CTkScrollableFrame):
         self.reps_lbl.configure(text=f"Нэг сетэд: {s['reps']} давталт")
         self.rest_lbl.configure(text=f"Сет хоорондын амралт: {s['rest']} секунд")
         video = s["source"] == "video"  # бичлэг дээр зорилго, амралтгүйгээр бүх давталтыг тоолно
-        state = "disabled" if s["free_mode"] or video else "normal"
+        off = s["free_mode"] or video
         for w in (self.reps, self.sets, self.rest, self.preset):
-            w.configure(state=state)
+            w.configure(state="disabled" if off else "normal")
+        for lbl in (self.reps_lbl, self.sets_lbl, self.rest_lbl):
+            lbl.configure(text_color=MUTED if off else TEXT2)
         current = (s["reps"], s["sets"], s["rest"])
         self.preset.set(next((k for k, v in PRESETS.items() if v == current), CUSTOM))
         self.free.configure(state="disabled" if video else "normal")
-        cam = s["source"] == "camera"
-        self.cam.configure(state="normal" if cam else "disabled")
-        self.mirror.configure(state="normal" if cam else "disabled")
-        self.video_btn.configure(state="normal" if s["source"] == "video" else "disabled")
-        name = os.path.basename(s["video_path"]) if s["video_path"] else "файл сонгоогүй"
-        self.video_lbl.configure(text=name)
+        if off:  # идэвхгүй болсон шалтгааныг хэлнэ
+            self.goal_note.configure(text="Видео файл дээр бүх давталтыг зорилго, амралтгүйгээр тоолно." if video
+                                     else "Чөлөөт горимд зорилго, сет, амралт хэрэглэгдэхгүй.")
+            self.goal_note.grid(row=3, column=0, sticky="w", padx=18, pady=(0, 2))
+        else:
+            self.goal_note.grid_remove()
+        self._show_source(s["source"])
+        self.video_lbl.configure(text=os.path.basename(s["video_path"]) if s["video_path"] else "Файл сонгоогүй")
         self.level_lbl.configure(text=LEVEL_HINTS[s["level"]])
-        hints = {"camera": "Space: тоолол алгасах · S: дуу · E: дуусгах · P: түр зогсоох · Esc: буцах",
-                 "video": "Бичлэг дээрх бүх давталтыг зорилго, амралтгүйгээр шууд тоолно.",
-                 "demo": "Камергүйгээр синтетик хүн дасгал хийж буйг үзүүлнэ (хичээл дээр үзүүлэхэд)."}
-        self.notice.configure(text=hints[s["source"]], text_color=TEXT2)
+        self._refresh_summary()
+        self.notice.configure(text=KEY_HINT, text_color=TEXT2)
+
+    def _show_source(self, kind):
+        if kind == self._src_kind:
+            return
+        self._src_kind = kind
+        for w in self.src_box.winfo_children():
+            w.grid_remove()
+        if kind == "camera":
+            self.cam_lbl.grid(row=0, column=0, sticky="w", padx=(14, 8), pady=(12, 4))
+            self.cam.grid(row=0, column=1, sticky="w", pady=(12, 4))
+            self.scan_btn.grid(row=0, column=2, sticky="e", padx=14, pady=(12, 4))
+            self.cam_status.grid(row=1, column=0, columnspan=3, sticky="ew", padx=14, pady=(2, 2))
+            self.mirror.grid(row=2, column=0, columnspan=3, sticky="w", padx=14, pady=(6, 12))
+        elif kind == "video":
+            self.video_btn.grid(row=0, column=0, sticky="w", padx=14, pady=12)
+            self.video_lbl.grid(row=0, column=1, columnspan=2, sticky="ew", padx=(10, 14), pady=12)
+        else:
+            self.demo_lbl.grid(row=0, column=0, columnspan=3, sticky="ew", padx=14, pady=12)
+
+    def _refresh_summary(self):
+        s = self.app.settings
+        if s["source"] == "video":
+            goal = "бичлэг дээрх бүх давталт"
+        elif s["free_mode"]:
+            goal = "чөлөөт горим"
+        else:
+            goal = f"{s['sets']} сет × {s['reps']} давталт, амралт {s['rest']} с"
+        src = {"camera": f"вэбкамер {s['camera_index']}",
+               "video": os.path.basename(s["video_path"]) or "видео файл сонгоогүй",
+               "demo": "демо (камергүй)"}[s["source"]]
+        self.summary_lbl.configure(text=f"{EX_TITLES[s['exercise']]}  ·  {goal}  ·  {src}")
 
     def select(self, name):
         self.app.settings["exercise"] = name
         for n, card in self.cards.items():
             card.set_selected(n == name)
+        self._refresh_summary()
 
     def _on_preset(self, label):
         if label not in PRESETS:
@@ -295,6 +401,7 @@ class HomePage(ctk.CTkScrollableFrame):
 
     def _on_cam(self, v):
         self.app.settings["camera_index"] = int(v)
+        self._refresh_summary()
 
     def _on_model(self, label):
         self.app.settings["model"] = next(k for k, v in MODELS.items() if v == label)
@@ -314,6 +421,48 @@ class HomePage(ctk.CTkScrollableFrame):
         if path:
             self.app.settings["video_path"] = path
         self._refresh_labels()
+
+    # ---- камер хайх (тусдаа урсгалд: цонх гацахгүй)
+    def scan_cameras(self):
+        if self.scanning:
+            return
+        self.scanning = True
+        self.scan_btn.configure(state="disabled", text="Хайж байна...")
+        self.start_btn.configure(state="disabled")
+        self.cam_status.configure(text="Камеруудыг шалгаж байна. Хэдэн секунд болно...", text_color=TEXT2)
+        result = {}
+
+        def work():
+            try:
+                result["found"] = find_cameras()
+            except Exception as e:  # noqa: BLE001 - OpenCV-ийн алдааг хэрэглэгчид харуулна
+                result["error"] = str(e)
+
+        thread = threading.Thread(target=work, daemon=True)
+        thread.start()
+        self.after(100, self._scan_done, thread, result)
+
+    def _scan_done(self, thread, result):
+        if thread.is_alive():
+            self.after(100, self._scan_done, thread, result)
+            return
+        self.scanning = False
+        self.scan_btn.configure(state="normal", text="Камер хайх")
+        self.start_btn.configure(state="normal")
+        self.notice.configure(text=KEY_HINT, text_color=TEXT2)   # «хүлээнэ үү» сануулгыг арилгана
+        found = result.get("found") or []
+        if not found:
+            error = f" ({result['error']})" if result.get("error") else ""
+            self.cam_status.configure(text=f"Камер олдсонгүй{error}. {camera_help()}", text_color=WARN)
+            return
+        values = [str(i) for i in found]
+        self.cam.configure(values=values)
+        if self.cam.get() not in values:
+            self.cam.set(values[0])
+            self._on_cam(values[0])
+        names = ", ".join(values)
+        self.cam_status.configure(text=f"Ажиллаж буй камер: {names}. Одоо {self.cam.get()}-р камерыг сонгосон.",
+                                  text_color=GOOD)
 
     def show_notice(self, text, color=WARN):
         self.notice.configure(text=text, text_color=color)
@@ -336,6 +485,7 @@ class WorkoutPage(ctk.CTkFrame):
         self._trace_ex, self._trace_reps = None, 0
         self._setup_icons = {}
         self._pending_ex = None
+        self._flash_job = None
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -360,8 +510,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.checklist = SetupChecklist(self.video_box)
         # Камер нээгдэхгүй үед мухардалд орохгүйн тулд дараагийн алхмыг санал болгоно
         self.err_actions = ctk.CTkFrame(self.video_box, fg_color="transparent")
-        ctk.CTkButton(self.err_actions, text="Демо горимоор туршиж үзэх", height=40, font=font(15),
-                      fg_color=ACCENT, hover_color=ACCENT_HOVER,
+        ctk.CTkButton(self.err_actions, text="Демо горимоор туршиж үзэх", height=40, font=font(15), **PRIMARY,
                       command=lambda: self.app.start_workout(source="demo")).pack(side="left", padx=5)
         ctk.CTkButton(self.err_actions, text="Нүүр хуудас", height=40, font=font(15), fg_color="#2c2c2c",
                       hover_color="#383838", text_color="#f2f2f0",
@@ -376,7 +525,7 @@ class WorkoutPage(ctk.CTkFrame):
                                                 font=font(14), **SEG)
         self.ex_switch.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
 
-        rep_card = Card(side)
+        self.rep_card = rep_card = Card(side)
         rep_card.grid(row=1, column=0, columnspan=2, sticky="ew")
         rep_card.grid_columnconfigure(0, weight=1)
         top = ctk.CTkFrame(rep_card, fg_color="transparent")
@@ -432,8 +581,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.tip_img = ctk.CTkLabel(tip, text="")  # бэлтгэлийн үед эхлэх байрлалын зураг
 
         b = dict(height=38, font=font(14), corner_radius=10)
-        sec = dict(fg_color="transparent", border_width=1, border_color=BORDER, text_color=TEXT,
-                   hover_color=INSET)
+        sec = SECONDARY
         self.pause_btn = ctk.CTkButton(side, text="Түр зогсоох (P)", command=self.toggle_pause, **b, **sec)
         self.pause_btn.grid(row=4, column=0, sticky="ew", padx=(0, 5), pady=(12, 5))
         self.skip_btn = ctk.CTkButton(side, text="Алгасах (Space)", command=self.skip, **b, **sec)
@@ -442,12 +590,11 @@ class WorkoutPage(ctk.CTkFrame):
         self.sound_btn.grid(row=5, column=0, sticky="ew", padx=(0, 5), pady=5)
         self.mirror_btn = ctk.CTkButton(side, text="Толин дүрс (M)", command=self.toggle_mirror, **b, **sec)
         self.mirror_btn.grid(row=5, column=1, sticky="ew", padx=(5, 0), pady=5)
-        self.finish_btn = ctk.CTkButton(side, text="Дуусгаж дүн харах (E)", command=self.finish,
-                                        fg_color=ACCENT, hover_color=ACCENT_HOVER, **b)
+        self.finish_btn = ctk.CTkButton(side, text="Дуусгаж дүн харах (E)", command=self.finish, **PRIMARY, **b)
         self.finish_btn.grid(row=6, column=0, columnspan=2, sticky="ew", pady=5)
         self.back_btn = ctk.CTkButton(side, text="← Нүүр (Esc)", command=self.request_leave, **b, **sec)
         self.back_btn.grid(row=7, column=0, sticky="ew", padx=(0, 5), pady=5)
-        self.full_btn = ctk.CTkButton(side, text="Бүтэн дэлгэц (F11)", command=self.app.toggle_fullscreen,
+        self.full_btn = ctk.CTkButton(side, text="Бүтэн дэлгэц (F)", command=self.app.toggle_fullscreen,
                                       **b, **sec)
         self.full_btn.grid(row=7, column=1, sticky="ew", padx=(5, 0), pady=5)
         self.perf_lbl = ctk.CTkLabel(side, text="", font=font(12), text_color=MUTED)
@@ -464,14 +611,14 @@ class WorkoutPage(ctk.CTkFrame):
 
     def _on_page_resize(self, e):
         """Намхан дэлгэц (жишээ нь 1280×800, 200% томруулалт) дээр самбарыг багтаахын тулд жижигрүүлнэ."""
-        compact = e.height < 780
+        compact = e.height / ctk.ScalingTracker.get_widget_scaling(self) < 780
         if compact == self._compact:
             return
         self._compact = compact
         self.rep_num.configure(font=font(56 if compact else 84, "bold"), height=66 if compact else 96)
         self.rep_of.configure(font=font(24 if compact else 32))
         self.tip_detail.grid_remove() if compact else self.tip_detail.grid()
-        self.trace.configure(height=104 if compact else 140)
+        self.trace.set_base_height(104 if compact else 140)
         self.perf_lbl.grid_remove() if compact else self.perf_lbl.grid()
 
     # ---- эхлүүлэх / зогсоох
@@ -522,6 +669,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.mirror_btn.configure(state="normal" if kind == "camera" else "disabled")
         self.time_lbl.configure(text="")
         self.perf_lbl.configure(text="")
+        self._unflash()
         self._reset_trace(s["exercise"])
         self._show_setup_icon(None)
 
@@ -680,6 +828,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.trace.reset(DEPTH[ex])
 
     def _update_trace(self, ef):
+        """Графикт кадр нэмнэ. Энэ кадрт шинэ давталт тоологдсон бол түүнийг буцаана."""
         if ef.exercise != self._trace_ex:
             self._reset_trace(ef.exercise)
             self._trace_reps = ef.wv.total_reps
@@ -689,6 +838,22 @@ class WorkoutPage(ctk.CTkFrame):
             rep = reps[n - 1] if len(reps) >= n else None
         self._trace_reps = n
         self.trace.push(ef.t, ef.wv.fb.main_angle, rep, rep_no=n)
+        return rep
+
+    def _flash(self, color):
+        """Давталт тоологдоход тоолуурын карт 0.7 секунд ногоон/улаан болно: холоос ч, нүдний булангаар ч харагдана."""
+        if self._flash_job is not None:
+            self.after_cancel(self._flash_job)
+        self.rep_card.configure(border_color=color, border_width=3)
+        self.rep_num.configure(text_color=color)
+        self._flash_job = self.after(700, self._unflash)
+
+    def _unflash(self):
+        if self._flash_job is not None:
+            self.after_cancel(self._flash_job)
+            self._flash_job = None
+        self.rep_card.configure(border_color=BORDER, border_width=1)
+        self.rep_num.configure(text_color=TEXT)
 
     def _show_setup_icon(self, ex):
         """Бэлтгэлийн үед зөвлөмжийн карт дээр эхлэх байрлалыг зургаар харуулна."""
@@ -734,7 +899,9 @@ class WorkoutPage(ctk.CTkFrame):
         self._set("set", self.set_lbl, text="Чөлөөт горим" if free else f"Сет {wv.set_index} / {wv.sets_total}")
         mins, secs = divmod(int(ef.t), 60)
         self._set("time", self.time_lbl, text=f"Хугацаа {mins}:{secs:02d}")
-        self._update_trace(ef)
+        new_rep = self._update_trace(ef)
+        if new_rep is not None:
+            self._flash(GOOD if new_rep.correct else BAD)
         prog = 0.0 if free else min(1.0, len(wv.set_reps) / max(wv.target, 1))
         if self._cache.get("prog") != prog:
             self._cache["prog"] = prog
@@ -812,9 +979,9 @@ class SummaryPage(ctk.CTkScrollableFrame):
             row = self._section(w, row, records, csv_path)
         bar = ctk.CTkFrame(self, fg_color="transparent")
         bar.grid(row=row, column=0, sticky="w", padx=8, pady=(8, 16))
-        ctk.CTkButton(bar, text="Дахин хийх", height=44, width=160, font=font(15, "bold"), fg_color=ACCENT,
-                      hover_color=ACCENT_HOVER, command=self.app.start_workout).pack(side="left")
-        sec = dict(fg_color="transparent", border_width=1, border_color=BORDER, text_color=TEXT, hover_color=INSET)
+        ctk.CTkButton(bar, text="Дахин хийх", height=44, width=160, font=font(15, "bold"), **PRIMARY,
+                      command=self.app.start_workout).pack(side="left")
+        sec = SECONDARY
         ctk.CTkButton(bar, text="Нүүр хуудас", height=44, width=150, font=font(15),
                       command=lambda: self.app.show("home"), **sec).pack(side="left", padx=10)
         ctk.CTkButton(bar, text="Түүх харах", height=44, width=150, font=font(15),
@@ -920,7 +1087,7 @@ class HistoryPage(ctk.CTkScrollableFrame):
         top.grid_columnconfigure(0, weight=1)
         header(top, "Түүх", "Өмнөх дасгалуудын дүн (logs/ хавтас дахь CSV файлуудаас).").grid(row=0, column=0,
                                                                                             sticky="w")
-        sec = dict(fg_color="transparent", border_width=1, border_color=BORDER, text_color=TEXT, hover_color=INSET)
+        sec = SECONDARY
         self.filter = ctk.CTkSegmentedButton(top, values=list(HISTORY_FILTERS), command=lambda v: self.refresh(),
                                              font=font(13), width=230, height=32, dynamic_resizing=False, **SEG)
         self.filter.set("Бүгд")
@@ -990,8 +1157,13 @@ class HistoryPage(ctk.CTkScrollableFrame):
             vals = [r.when.strftime("%Y-%m-%d %H:%M"), EX_TITLES.get(r.exercise, r.exercise), str(r.reps),
                     str(r.correct), f"{r.accuracy * 100:.0f}%",
                     f"{r.avg_score:.0f}" if r.avg_score is not None else "–", top_issue]
+            striped = i % 2 == 0  # мөр алгасан дэвсгэр: урт хүснэгтийг нүдээр дагахад амар
+            if striped:
+                ctk.CTkFrame(self.table, fg_color=INSET, corner_radius=6, height=26).grid(
+                    row=i, column=0, columnspan=len(cols), sticky="nsew", padx=6)
             for c, v in enumerate(vals):
-                ctk.CTkLabel(self.table, text=v, font=font(13), text_color=TEXT, anchor="w").grid(
+                ctk.CTkLabel(self.table, text=v, font=font(13), text_color=TEXT, anchor="w",
+                             fg_color=INSET if striped else "transparent").grid(
                     row=i, column=c, sticky="w", padx=14, pady=3)
         ctk.CTkLabel(self.table, text="").grid(row=len(records[:50]) + 1, column=0, pady=2)
 
@@ -1031,7 +1203,8 @@ HELP = [
         "Space: тоолол эсвэл амралтыг алгасах   ·   P: түр зогсоох / үргэлжлүүлэх",
         "S: дуу асаах / унтраах   ·   M: толин дүрс   ·   1 / 2: squat / push-up",
         "E: дасгалыг дуусгаж дүн харах   ·   Esc: гарах (давталт хийсэн бол дүнгээ харах эсэхийг асууна)",
-        "F11: бүтэн дэлгэц (камераас холоос харахад тохиромжтой; Esc эсвэл F11 дарж гарна)",
+        "F эсвэл F11: бүтэн дэлгэц (холоос харахад тохиромжтой; F эсвэл Esc дарж гарна)",
+        "Нүүр хуудсанд Enter дарвал дасгал эхэлнэ.",
     ]),
     ("Юуг шалгадаг вэ", [
         "Squat: гүн (өвдөг ≤ 100°), их бие хэт урагш хазайх (> 50°), өвдөг дотогш орох (урдаас), "
@@ -1044,10 +1217,12 @@ HELP = [
         "руу өөрөө шилжинэ. Сетийн дундуур (давталт хийж байхад) солигдохгүй.",
     ]),
     ("Асуудал гарвал", [
-        "Камер нээгдэхгүй: Zoom, Teams зэрэг камер ашиглаж буй програмыг хаагаад, өөр камерын дугаар сонгоно.",
+        "Камер нээгдэхгүй: нүүр хуудасны «Камер хайх» товчоор ажиллаж буй камерыг олно. " + camera_help(),
         "Тоолол эхлэхгүй: бие бүтэн харагдаж, эхлэх байрлалдаа 1 секунд зогсох хэрэгтэй. Шууд эхлэх бол Space.",
         "Удаан ажиллаж байна: «Хурдан (lite)» загварыг сонгоно.",
         "Камергүй үзэх бол нүүр хуудаснаас «Демо (камергүй)»-г сонгоно.",
+        "Цонх, бичиг хэт жижиг эсвэл том: зүүн цэсний доод талын «Хэмжээ»-г өөрчилнө (жишээ нь Linux-ийн өндөр "
+        "нягтралтай дэлгэцэд 150–200%, жижиг дэлгэцтэй зөөврийн компьютерт 90%).",
     ]),
 ]
 
@@ -1061,8 +1236,7 @@ class HelpPage(ctk.CTkScrollableFrame):
         top.grid_columnconfigure(0, weight=1)
         header(top, "Заавар", "Аппыг хэрхэн ашиглах вэ").grid(row=0, column=0, sticky="w")
         ctk.CTkButton(top, text="Танилцуулгыг дахин үзэх", width=200, command=app.show_onboarding,
-                      fg_color="transparent", border_width=1, border_color=BORDER, text_color=TEXT,
-                      hover_color=INSET).grid(row=0, column=1, sticky="e")
+                      **SECONDARY).grid(row=0, column=1, sticky="e")
         for i, (title, lines) in enumerate(HELP, 1):
             card = Card(self)
             card.grid(row=i, column=0, sticky="ew", padx=8, pady=6)

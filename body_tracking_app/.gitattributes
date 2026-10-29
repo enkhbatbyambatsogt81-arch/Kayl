@@ -1,0 +1,4 @@
+# Windows-ийн cmd .bat файлыг CRLF мөрийн төгсгөлтэй уншдаг, bash .sh файлыг LF-тэй.
+# .bat-ыг CRLF-ээр нь өөрчлөлгүй хадгална: ZIP, clone, ганц файл татсан ч CRLF хэвээр байна.
+*.bat -text
+*.sh text eol=lf

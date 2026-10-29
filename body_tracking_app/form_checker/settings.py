@@ -23,6 +23,7 @@ DEFAULTS = {
     "onboarded": False,      # анх нээхэд гарах танилцуулгыг үзсэн эсэх
     "level": "normal",       # шалгуурын түвшин: easy / normal / strict (2.0)
     "auto_detect": True,     # дасгалыг биеийн байрлалаар автоматаар таних (2.0)
+    "ui_scale": 1.0,         # цонхны элементүүдийн хэмжээ (2.1): 1.0 = 100%
 }
 
 
@@ -34,13 +35,15 @@ CHOICES = {
     "appearance": ("dark", "light", "system"),
     "level": ("easy", "normal", "strict"),
 }
-RANGES = {"reps": (1, 50), "sets": (1, 10), "rest": (0, 600), "camera_index": (0, 9)}
+RANGES = {"reps": (1, 50), "sets": (1, 10), "rest": (0, 600), "camera_index": (0, 9), "ui_scale": (0.7, 2.5)}
 
 
 def _valid(key, value):
     default = DEFAULTS[key]
     if isinstance(default, bool) or isinstance(value, bool):
         return isinstance(value, bool) and isinstance(default, bool)
+    if isinstance(default, float) and isinstance(value, int):
+        value = float(value)  # JSON-д 1.0-ийг 1 гэж бичсэн байж болно
     if not isinstance(value, type(default)):
         return False
     if key in CHOICES:
@@ -60,7 +63,7 @@ def load_settings(path=SETTINGS_PATH):
             # Мэдэгдэх түлхүүр, зөв төрөл, зөвшөөрөгдсөн утгыг л авна
             for k, v in saved.items():
                 if k in DEFAULTS and _valid(k, v):
-                    data[k] = v
+                    data[k] = float(v) if isinstance(DEFAULTS[k], float) else v
     except (OSError, ValueError):
         pass
     return data

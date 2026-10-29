@@ -27,6 +27,12 @@ SEG = dict(
     text_color_disabled=("#9a9a94", "#6a6a6a"),
 )
 
+# Товчлуурын хэв маяг. Идэвхгүй (disabled) үед бичиг нь бүдгэрч, дарах боломжгүй нь шууд харагдана.
+PRIMARY = dict(fg_color=ACCENT, hover_color=ACCENT_HOVER, text_color="#ffffff",
+               text_color_disabled=("#d6e4f6", "#8fa9c9"))
+SECONDARY = dict(fg_color="transparent", border_width=1, border_color=BORDER, text_color=TEXT, hover_color=INSET,
+                 text_color_disabled=MUTED)
+
 # Төлөвийн өнгө: зөв / анхааруулга / алдаа. Үргэлж текст эсвэл тэмдэгтэй хамт ашиглана.
 GOOD = "#0ca30c"
 WARN = "#fab219"
@@ -54,3 +60,16 @@ def pick(pair):
 
 def font(size=14, weight="normal"):
     return ctk.CTkFont(size=size, weight=weight)
+
+
+def font_family():
+    """CTk-ийн сэдвийн фонт (Windows, Linux: Roboto; macOS: системийн фонт)."""
+    try:
+        return ctk.ThemeManager.theme["CTkFont"]["family"]
+    except (AttributeError, KeyError, TypeError):
+        return "TkDefaultFont"
+
+
+def canvas_font(px, weight="normal"):
+    """tk.Canvas дээрх текстийн фонт: бусад бичигтэй ижил хэлбэр, хэмжээг пикселээр (Tk-д сөрөг тоо)."""
+    return (font_family(), -max(6, round(px)), weight)

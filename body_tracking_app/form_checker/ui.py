@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import math
 import os
+import shutil
+import subprocess
 
 import cv2
 import numpy as np
@@ -21,9 +23,15 @@ FONT_CANDIDATES = [
     # macOS
     "/System/Library/Fonts/Supplemental/Arial.ttf", "/Library/Fonts/Arial.ttf",
     "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-    # Linux
+    # Linux (Ubuntu/Debian, Fedora, Arch)
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+    "/usr/share/fonts/google-noto/NotoSans-Regular.ttf",
+    "/usr/share/fonts/noto/NotoSans-Regular.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
 ]
 FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
@@ -38,12 +46,29 @@ MAIN_JOINT = {"squat": "knee", "pushup": "elbow"}
 ARC_NEIGHBORS = {"squat": ("hip", "ankle"), "pushup": ("shoulder", "wrist")}
 
 
+def _fontconfig_font():
+    """Linux-д дээрх замд фонт олдохгүй бол fontconfig-оос монгол (кирилл) үсэгтэй фонтыг асууна."""
+    if not shutil.which("fc-match"):
+        return None
+    try:
+        out = subprocess.run(["fc-match", "-f", "%{file}", "sans-serif:lang=mn"], capture_output=True,
+                             text=True, timeout=3).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out or None
+
+
+def _is_font(path):
+    return bool(path) and path.lower().endswith((".ttf", ".otf", ".ttc")) and os.path.exists(path)
+
+
 def _find_font():
     local = [os.path.join(FONT_DIR, f) for f in sorted(os.listdir(FONT_DIR))] if os.path.isdir(FONT_DIR) else []
     for path in local + FONT_CANDIDATES:
-        if path.lower().endswith((".ttf", ".otf", ".ttc")) and os.path.exists(path):
+        if _is_font(path):
             return path
-    return None
+    path = _fontconfig_font()
+    return path if _is_font(path) else None
 
 
 class Renderer:

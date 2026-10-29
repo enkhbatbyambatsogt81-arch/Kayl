@@ -10,7 +10,6 @@ main.py (командын мөр) болон gui.py (цонхтой интерф
 from __future__ import annotations
 
 import queue
-import sys
 import time
 from dataclasses import dataclass
 
@@ -18,6 +17,7 @@ import cv2
 import numpy as np
 
 from .audio import SoundPlayer
+from .camera import camera_help, open_camera
 from .config import WorkoutConfig
 from .exercises import create_analyzer
 from .pose import Pose
@@ -149,22 +149,25 @@ class WorkoutEngine:
             self.demo = DemoSource(self.exercise, self.width, self.height)
         else:
             if self.kind == "camera":
-                index = int(self.source)
-                win = sys.platform.startswith("win")
-                # Windows дээр DirectShow камерыг хурдан нээдэг
-                self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW) if win else cv2.VideoCapture(index)
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                # Windows / macOS / Linux-д тохирох backend-ийг дарааллаар оролдоно (camera.py)
+                self.cap = open_camera(int(self.source), self.width, self.height)
+                if self.cap is None:
+                    return f"Камер {self.source}-ийг нээж чадсангүй. {camera_help()}"
             else:
                 self.cap = cv2.VideoCapture(self.source)
-            if not self.cap.isOpened():
-                return (f"Камер {self.source}-ийг нээж чадсангүй. Өөр програм (Zoom, Teams) камер ашиглаж байгаа "
-                        "эсэхийг шалгана уу." if self.kind == "camera"
-                        else f"Видео файлыг нээж чадсангүй: {self.source}")
+                if not self.cap.isOpened():
+                    return f"Видео файлыг нээж чадсангүй: {self.source}"
             self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 30.0
             if self.estimator is None:
                 from .pose import PoseEstimator
-                self.estimator = PoseEstimator(self.model)
+                try:
+                    self.estimator = PoseEstimator(self.model)
+                except OSError as e:
+                    if "libEGL" not in str(e) and "libGL" not in str(e):
+                        raise
+                    # Linux-ийн хөнгөн суулгацад MediaPipe-ийн шаарддаг OpenGL сан байхгүй байдаг
+                    return (f"MediaPipe-д шаардлагатай график сан алга ({e}). Ubuntu/Debian: "
+                            "sudo apt install libegl1 libgl1   Fedora: sudo dnf install mesa-libEGL mesa-libGL")
         self.t_start = time.perf_counter()
         return None
 

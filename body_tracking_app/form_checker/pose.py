@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -88,6 +89,21 @@ def framing_hint(pose: Pose, min_visibility=0.5, margin=0.01, min_size=0.0):
     return None
 
 
+def _download(url, path):
+    """macOS-ийн python.org Python зэрэгт системийн SSL гэрчилгээ дутуу байдаг тул certifi-г ашиглана
+    (mediapipe-тэй хамт суудаг)."""
+    context = None
+    try:
+        import ssl
+
+        import certifi
+        context = ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        pass
+    with urllib.request.urlopen(url, context=context) as response, open(path, "wb") as f:
+        shutil.copyfileobj(response, f)
+
+
 def ensure_model(variant="lite"):
     """Загварын файл models/ хавтсанд байхгүй бол интернэтээс татна."""
     os.makedirs(MODELS_DIR, exist_ok=True)
@@ -95,7 +111,7 @@ def ensure_model(variant="lite"):
     if not os.path.exists(path):
         url = MODEL_URL.format(v=variant)
         print(f"[model] {variant} загварыг татаж байна: {url}")
-        urllib.request.urlretrieve(url, path + ".part")
+        _download(url, path + ".part")
         os.replace(path + ".part", path)
     return path
 
@@ -108,8 +124,12 @@ class PoseEstimator:
         from mediapipe.tasks.python import vision
 
         self._mp = mp
+        # Замд кирилл үсэг эсвэл зай байвал (жишээ нь «Хүн компьютерын харилцаа») MediaPipe файлыг
+        # Windows дээр нээж чаддаггүй. Тиймээс загварыг Python-оор уншаад санах ойгоор дамжуулна.
+        with open(ensure_model(variant), "rb") as f:
+            model = f.read()
         options = vision.PoseLandmarkerOptions(
-            base_options=mp.tasks.BaseOptions(model_asset_path=ensure_model(variant)),
+            base_options=mp.tasks.BaseOptions(model_asset_buffer=model),
             running_mode=vision.RunningMode.VIDEO,
             num_poses=1,
             min_pose_detection_confidence=min_detection,

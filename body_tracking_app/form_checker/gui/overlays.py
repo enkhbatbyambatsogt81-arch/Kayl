@@ -10,7 +10,7 @@ from __future__ import annotations
 import customtkinter as ctk
 from PIL import Image, ImageDraw
 
-from .theme import ACCENT, ACCENT_HOVER, BG, BORDER, GOOD, INSET, TEXT, TEXT2, WARN, font
+from .theme import ACCENT, BG, BORDER, GOOD, INSET, PRIMARY, SECONDARY, TEXT, TEXT2, WARN, font
 from .widgets import Card, camera_figure, stick_figure
 
 LIGHT_FIG, DARK_FIG = (42, 120, 214), (120, 170, 235)
@@ -108,14 +108,13 @@ class Onboarding(ctk.CTkFrame):
             d.pack(side="left", padx=3)
         bar = ctk.CTkFrame(card, fg_color="transparent")
         bar.grid(row=3, column=1, sticky="e", padx=28, pady=(8, 24))
-        sec = dict(fg_color="transparent", border_width=1, border_color=BORDER, text_color=TEXT, hover_color=INSET)
+        sec = SECONDARY
         b = dict(height=42, font=font(15), corner_radius=10)
         self.skip_btn = ctk.CTkButton(bar, text="Алгасах", width=100, command=self.close, fg_color="transparent",
                                       text_color=TEXT2, hover_color=INSET, **b)
         self.back_btn = ctk.CTkButton(bar, text="← Өмнөх", width=110, command=self.back, **b, **sec)
         self.demo_btn = ctk.CTkButton(bar, text="Камергүй туршиж үзэх", width=200, command=self._demo, **b, **sec)
-        self.next_btn = ctk.CTkButton(bar, text="", width=150, command=self.next, fg_color=ACCENT,
-                                      hover_color=ACCENT_HOVER, **b)
+        self.next_btn = ctk.CTkButton(bar, text="", width=150, command=self.next, **PRIMARY, **b)
 
     # ---- харуулах / нуух
     def open(self):
@@ -194,9 +193,7 @@ class ConfirmCard(Card):
         bar = ctk.CTkFrame(self, fg_color="transparent")
         bar.grid(row=2, column=0, sticky="e", padx=22, pady=(0, 22))
         for label, fn, style in buttons:
-            kw = (dict(fg_color=ACCENT, hover_color=ACCENT_HOVER) if style == "primary" else
-                  dict(fg_color="transparent", border_width=1, border_color=BORDER, text_color=TEXT,
-                       hover_color=INSET))
+            kw = PRIMARY if style == "primary" else SECONDARY
             ctk.CTkButton(bar, text=label, command=fn, height=42, font=font(15), corner_radius=10, **kw).pack(
                 side="left", padx=4)
         self._open = False

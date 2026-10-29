@@ -9,7 +9,7 @@ import customtkinter as ctk
 import numpy as np
 from PIL import Image, ImageDraw
 
-from .theme import ACCENT, BAD, BORDER, CARD, GOOD, MUTED, TEXT, TEXT2, ZONE, font, pick
+from .theme import ACCENT, BAD, BORDER, CARD, GOOD, MUTED, TEXT, TEXT2, ZONE, canvas_font, font, pick
 
 
 class Card(ctk.CTkFrame):
@@ -41,12 +41,42 @@ class StatTile(Card):
 
 
 class ThemedCanvas(tk.Canvas):
-    """Өнгөний горим солигдоход дахин зурагддаг tk.Canvas."""
+    """Өнгөний горим эсвэл хэмжээ солигдоход дахин зурагддаг tk.Canvas.
+
+    tk.Canvas-ийг CustomTkinter өөрөө томруулдаггүй тул өндөр, зай, фонтыг 100%-ийн пикселээр бичээд
+    self.s-ээр үржүүлнэ (Windows-ийн томруулалт, «Хэмжээ» тохиргоо). Ингэснээр бусад элементтэй ижил хэмжээтэй.
+    """
 
     def __init__(self, master, height=120, bg_pair=CARD, **kw):
         super().__init__(master, height=height, highlightthickness=0, bd=0, **kw)
         self.bg_pair = bg_pair
+        self.base_height = height
+        self.s = 1.0
+        # Энгийн tk.Tk цонхонд (тест) CustomTkinter-ийн томруулалт байхгүй
+        self._tracked = isinstance(self.winfo_toplevel(), (ctk.CTk, ctk.CTkToplevel))
+        if self._tracked:
+            self.s = ctk.ScalingTracker.get_widget_scaling(self)
+            ctk.ScalingTracker.add_widget(self._set_scaling, self)
+            self.configure(height=round(height * self.s))
         self.bind("<Configure>", lambda e: self.redraw())
+
+    def _set_scaling(self, widget_scaling, _window_scaling):
+        self.s = widget_scaling
+        self.configure(height=round(self.base_height * self.s))
+        self.redraw()
+
+    def set_base_height(self, height):
+        self.base_height = height
+        self.configure(height=round(height * self.s))
+
+    def f(self, px, weight="normal"):
+        """Канвасын фонт: px нь 100%-ийн хэмжээ."""
+        return canvas_font(px * self.s, weight)
+
+    def destroy(self):
+        if self._tracked:
+            ctk.ScalingTracker.remove_widget(self._set_scaling, self)
+        super().destroy()
 
     def redraw(self):
         self.configure(bg=pick(self.bg_pair))
@@ -78,16 +108,16 @@ class RepDots(ThemedCanvas):
             n = len(reps)
         if n == 0:
             return
-        r = 9
-        step = min(26, (w - 4) / n)
-        r = max(4, min(r, int(step / 2) - 2))
+        s = self.s
+        step = min(26 * s, (w - 4 * s) / n)
+        r = max(4 * s, min(9 * s, step / 2 - 2 * s))
         for i in range(n):
-            cx, cy = 4 + r + i * step, h / 2
+            cx, cy = 4 * s + r + i * step, h / 2
             if i < len(reps):
                 color = GOOD if reps[i].correct else BAD
                 self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=color, outline="")
             else:
-                self.create_oval(cx - r, cy - r, cx + r, cy + r, outline=pick(MUTED), width=1.5)
+                self.create_oval(cx - r, cy - r, cx + r, cy + r, outline=pick(MUTED), width=1.5 * s)
 
 
 class _Tooltip:
@@ -100,34 +130,35 @@ class _Tooltip:
         canvas.bind("<Leave>", lambda e: canvas.delete("tip"))
 
     def _move(self, e):
-        c = self.canvas
+        c, s = self.canvas, self.canvas.s
         c.delete("tip")
         for x0, y0, x1, y1, lines in self.targets:
             if x0 <= e.x <= x1 and y0 <= e.y <= y1:
                 text = "\n".join(lines)
-                tid = c.create_text(0, 0, text=text, anchor="nw", fill=pick(TEXT), font=("Segoe UI", 10), tags="tip")
+                tid = c.create_text(0, 0, text=text, anchor="nw", fill=pick(TEXT), font=c.f(13), tags="tip")
                 bx0, by0, bx1, by1 = c.bbox(tid)
-                tw, th = bx1 - bx0 + 16, by1 - by0 + 12
-                x = min(max(e.x + 14, 4), c.winfo_width() - tw - 4)
-                y = max(e.y - th - 10, 4)
+                tw, th = bx1 - bx0 + 16 * s, by1 - by0 + 12 * s
+                x = min(max(e.x + 14 * s, 4 * s), c.winfo_width() - tw - 4 * s)
+                y = max(e.y - th - 10 * s, 4 * s)
                 rid = c.create_rectangle(x, y, x + tw, y + th, fill=pick(CARD), outline=pick(BORDER), tags="tip")
-                c.coords(tid, x + 8, y + 6)
+                c.coords(tid, x + 8 * s, y + 6 * s)
                 c.tag_raise(tid, rid)
                 return
 
 
 def _legend(c, x, y, items):
-    """items: [(өнгө, текст, "box"|"dash")]. Баруун дээд буланд зурна, x нь баруун ирмэг."""
+    """items: [(өнгө, текст, "box"|"dot"|"dash")]. Баруун дээд буланд зурна, x нь баруун ирмэг."""
+    s = c.s
     for color, label, kind in reversed(items):
-        tid = c.create_text(x, y, text=label, anchor="e", fill=pick(TEXT2), font=("Segoe UI", 10))
+        tid = c.create_text(x, y, text=label, anchor="e", fill=pick(TEXT2), font=c.f(13))
         x0 = c.bbox(tid)[0]
         if kind == "box":
-            c.create_rectangle(x0 - 16, y - 5, x0 - 6, y + 5, fill=color, outline="")
+            c.create_rectangle(x0 - 16 * s, y - 5 * s, x0 - 6 * s, y + 5 * s, fill=color, outline="")
         elif kind == "dot":
-            c.create_oval(x0 - 16, y - 5, x0 - 6, y + 5, fill=color, outline="")
+            c.create_oval(x0 - 16 * s, y - 5 * s, x0 - 6 * s, y + 5 * s, fill=color, outline="")
         else:
-            c.create_line(x0 - 22, y, x0 - 6, y, fill=color, dash=(4, 3), width=2)
-        x = x0 - 32
+            c.create_line(x0 - 22 * s, y, x0 - 6 * s, y, fill=color, dash=(4, 3), width=2 * s)
+        x = x0 - 32 * s
 
 
 class AngleTrace(ThemedCanvas):
@@ -184,20 +215,21 @@ class AngleTrace(ThemedCanvas):
         return x, y1 - (a - self.Y0) / (self.Y1 - self.Y0) * (y1 - y0)
 
     def draw(self, w, h):
-        self._box = (42, 26, w - 12, h - 22)  # дээд 26 px-д тайлбар (legend), шугамтай давхцахгүй
+        s = self.s
+        self._box = (42 * s, 26 * s, w - 12 * s, h - 22 * s)  # дээд хэсэгт тайлбар (legend), шугамтай давхцахгүй
         x0, y0, x1, y1 = self._box
         _, yd = self._xy(self.now, self.depth)
         self.create_rectangle(x0, yd, x1, y1, fill=pick(ZONE), outline="")
-        for v in ((60, 90, 120, 150, 180) if y1 - y0 > 70 else (60, 120, 180)):
+        for v in ((60, 90, 120, 150, 180) if y1 - y0 > 70 * s else (60, 120, 180)):
             _, y = self._xy(self.now, v)
             self.create_line(x0, y, x1, y, fill=pick(BORDER))
-            self.create_text(x0 - 6, y, text=f"{v}°", anchor="e", fill=pick(MUTED), font=("Segoe UI", 9))
-        self.create_line(x0, yd, x1, yd, fill=pick(TEXT2), dash=(5, 4), width=2)
+            self.create_text(x0 - 6 * s, y, text=f"{v}°", anchor="e", fill=pick(MUTED), font=self.f(12))
+        self.create_line(x0, yd, x1, yd, fill=pick(TEXT2), dash=(5, 4), width=2 * s)
         for k in range(0, int(self.WINDOW) + 1, 2):
             x = x1 - k / self.WINDOW * (x1 - x0)
-            self.create_text(x, y1 + 11, text="одоо" if k == 0 else f"−{k} с", fill=pick(MUTED),
-                             font=("Segoe UI", 9), anchor="e" if k == 0 else "center")
-        _legend(self, x1, 10, [(GOOD, "Зөв", "dot"), (BAD, "Алдаатай", "dot"),
+            self.create_text(x, y1 + 11 * s, text="одоо" if k == 0 else f"−{k} с", fill=pick(MUTED),
+                             font=self.f(12), anchor="e" if k == 0 else "center")
+        _legend(self, x1, 10 * s, [(GOOD, "Зөв", "dot"), (BAD, "Алдаатай", "dot"),
                                    (pick(TEXT2), f"Зорилт ≤ {self.depth:.0f}°", "dash")])
         self._draw_dynamic()
 
@@ -205,23 +237,25 @@ class AngleTrace(ThemedCanvas):
         self.delete("dyn")
         if not self.points:
             return
+        s = self.s
         # None (хүн харагдахгүй) үед шугамыг таслана
         seg = []
         for t, a in self.points:
             if a is None:
                 if len(seg) >= 4:
-                    self.create_line(*seg, fill=pick(ACCENT), width=2, tags="dyn")
+                    self.create_line(*seg, fill=pick(ACCENT), width=2 * s, tags="dyn")
                 seg = []
             else:
                 seg.extend(self._xy(t, a))
         if len(seg) >= 4:
-            self.create_line(*seg, fill=pick(ACCENT), width=2, tags="dyn")
-        r = 6
+            self.create_line(*seg, fill=pick(ACCENT), width=2 * s, tags="dyn")
+        r = 6 * s
         for t, a, ok, n in self.marks:
             x, y = self._xy(t, a)
-            self.create_oval(x - r - 2, y - r - 2, x + r + 2, y + r + 2, fill=pick(CARD), outline="", tags="dyn")
+            self.create_oval(x - r - 2 * s, y - r - 2 * s, x + r + 2 * s, y + r + 2 * s, fill=pick(CARD), outline="",
+                             tags="dyn")
             self.create_oval(x - r, y - r, x + r, y + r, fill=GOOD if ok else BAD, outline="", tags="dyn")
-            self.create_text(x, y + r + 9, text=str(n), fill=pick(TEXT2), font=("Segoe UI", 9), tags="dyn")
+            self.create_text(x, y + r + 9 * s, text=str(n), fill=pick(TEXT2), font=self.f(12), tags="dyn")
 
 
 class RepChart(ThemedCanvas):
@@ -240,25 +274,26 @@ class RepChart(ThemedCanvas):
 
     def draw(self, w, h):
         self.tip.targets = []
-        left, right, top, bottom = 44, 12, 28, 40
-        reps = [r for s in self.sets for r in s]
+        s = self.s
+        left, right, top, bottom = 44 * s, 12 * s, 28 * s, 40 * s
+        reps = [r for st in self.sets for r in st]
         if not reps:
-            self.create_text(w / 2, h / 2, text="Давталт алга", fill=pick(MUTED), font=("Segoe UI", 12))
+            self.create_text(w / 2, h / 2, text="Давталт алга", fill=pick(MUTED), font=self.f(16))
             return
         ymax = max(120, max(180 - r.min_angle for r in reps) + 10)
         ph = h - top - bottom
         y_of = lambda v: top + ph * (1 - v / ymax)  # noqa: E731
         for v in range(0, int(ymax) + 1, 30):
             self.create_line(left, y_of(v), w - right, y_of(v), fill=pick(BORDER))
-            self.create_text(left - 8, y_of(v), text=f"{v}°", anchor="e", fill=pick(MUTED), font=("Segoe UI", 9))
-        gap_set = 18
+            self.create_text(left - 8 * s, y_of(v), text=f"{v}°", anchor="e", fill=pick(MUTED), font=self.f(12))
+        gap_set = 18 * s
         n, ns = len(reps), len(self.sets)
         slot = (w - left - right - gap_set * (ns - 1)) / n
-        bw = max(4, min(34, slot - 2))  # баганын хооронд дор хаяж 2 px зай
+        bw = max(4 * s, min(34 * s, slot - 2 * s))  # баганын хооронд зай үлдээнэ
         x = left
-        for si, s in enumerate(self.sets):
+        for si, st in enumerate(self.sets):
             x_start = x
-            for r in s:
+            for r in st:
                 bend = 180 - r.min_angle
                 cx = x + slot / 2
                 y0 = y_of(bend)
@@ -273,21 +308,22 @@ class RepChart(ThemedCanvas):
                 self.tip.targets.append((x, top, x + slot, y_of(0), lines))
                 x += slot
             if ns > 1:
-                self.create_text((x_start + x) / 2, h - bottom + 22, text=f"Сет {si + 1}", fill=pick(TEXT2),
-                                 font=("Segoe UI", 10))
+                self.create_text((x_start + x) / 2, h - bottom + 22 * s, text=f"Сет {si + 1}", fill=pick(TEXT2),
+                                 font=self.f(13))
             x += gap_set
         if n <= 30:
             x = left
-            for s in self.sets:
-                for k, r in enumerate(s, 1):
-                    self.create_text(x + slot / 2, h - bottom + 8, text=str(k), fill=pick(MUTED),
-                                     font=("Segoe UI", 9))
+            for st in self.sets:
+                for k, r in enumerate(st, 1):
+                    self.create_text(x + slot / 2, h - bottom + 8 * s, text=str(k), fill=pick(MUTED),
+                                     font=self.f(12))
                     x += slot
                 x += gap_set
         yt = y_of(self.target_bend)
-        self.create_line(left, yt, w - right, yt, fill=pick(TEXT2), dash=(5, 4), width=2)
-        _legend(self, w - right, 12, [(GOOD, "Зөв", "box"), (BAD, "Алдаатай", "box"),
-                                      (pick(TEXT2), f"Зорилт: {self.joint} ≤ {180 - self.target_bend:.0f}°", "dash")])
+        self.create_line(left, yt, w - right, yt, fill=pick(TEXT2), dash=(5, 4), width=2 * s)
+        _legend(self, w - right, 12 * s, [(GOOD, "Зөв", "box"), (BAD, "Алдаатай", "box"),
+                                          (pick(TEXT2), f"Зорилт: {self.joint} ≤ {180 - self.target_bend:.0f}°",
+                                           "dash")])
 
 
 SHORT_NAMES = {"squat": "Squat", "pushup": "Push-up"}
@@ -307,7 +343,8 @@ class HistoryChart(ThemedCanvas):
 
     def draw(self, w, h):
         self.tip.targets = []
-        left, right, top, bottom = 40, 12, 30, 44
+        s = self.s
+        left, right, top, bottom = 40 * s, 12 * s, 30 * s, 44 * s
         if not self.records:
             return
         ymax = max(10, max(r.reps for r in self.records) * 1.1)  # дээд талд бага зэрэг зай
@@ -317,26 +354,26 @@ class HistoryChart(ThemedCanvas):
         y_of = lambda v: top + ph * (1 - v / ymax)  # noqa: E731
         for v in range(0, ymax + 1, step):
             self.create_line(left, y_of(v), w - right, y_of(v), fill=pick(BORDER))
-            self.create_text(left - 8, y_of(v), text=str(v), anchor="e", fill=pick(MUTED), font=("Segoe UI", 9))
+            self.create_text(left - 8 * s, y_of(v), text=str(v), anchor="e", fill=pick(MUTED), font=self.f(12))
         slot = (w - left - right) / len(self.records)
-        bw = max(6, min(40, slot * 0.6))
+        bw = max(6 * s, min(40 * s, slot * 0.6))
         for i, r in enumerate(self.records):
             cx = left + slot * (i + 0.5)
             yb, yc = y_of(0), y_of(r.correct)
             if r.correct:
                 self.create_rectangle(cx - bw / 2, yc, cx + bw / 2, yb, fill=GOOD, outline="")
             if r.reps > r.correct:
-                # 2 px зай: давхарласан хэсгүүдийг ялгана
-                self.create_rectangle(cx - bw / 2, y_of(r.reps), cx + bw / 2, yc - (2 if r.correct else 0),
+                # Бага зэрэг зай: давхарласан хэсгүүдийг ялгана
+                self.create_rectangle(cx - bw / 2, y_of(r.reps), cx + bw / 2, yc - (2 * s if r.correct else 0),
                                       fill=BAD, outline="")
-            self.create_text(cx, h - bottom + 10, text=SHORT_NAMES.get(r.exercise, r.exercise), fill=pick(TEXT2),
-                             font=("Segoe UI", 9))
-            self.create_text(cx, h - bottom + 24, text=r.when.strftime("%m/%d %H:%M"), fill=pick(MUTED),
-                             font=("Segoe UI", 8))
+            self.create_text(cx, h - bottom + 10 * s, text=SHORT_NAMES.get(r.exercise, r.exercise),
+                             fill=pick(TEXT2), font=self.f(12))
+            self.create_text(cx, h - bottom + 24 * s, text=r.when.strftime("%m/%d %H:%M"), fill=pick(MUTED),
+                             font=self.f(11))
             self.tip.targets.append((cx - slot / 2, top, cx + slot / 2, yb, [
                 r.when.strftime("%Y-%m-%d %H:%M"), self.ex_name(r.exercise),
                 f"Давталт: {r.reps}, зөв: {r.correct} ({r.accuracy * 100:.0f}%)"]))
-        _legend(self, w - right, 12, [(GOOD, "Зөв давталт", "box"), (BAD, "Алдаатай давталт", "box")])
+        _legend(self, w - right, 12 * s, [(GOOD, "Зөв давталт", "box"), (BAD, "Алдаатай давталт", "box")])
 
 
 def stick_figure(exercise, size=(200, 120), color=(42, 120, 214), bg=None, start=False):
