@@ -16,11 +16,12 @@ from ..settings import load_settings, save_settings
 from . import ctk_fixes
 from .overlays import Onboarding
 from .pages import EX_TITLES, HelpPage, HistoryPage, HomePage, SummaryPage, WorkoutPage
-from .theme import ACCENT, ACCENT_SOFT, BG, BORDER, CARD, INSET, MUTED, SEG, SIDEBAR, TEXT, TEXT2, font
+from .theme import (ACCENT, ACCENT_SOFT, BG, BORDER, INSET, MUTED, SEG, SIDEBAR, TEXT, TEXT2, apply_ctk_theme, font,
+                    pick)
 from .widgets import stick_figure
 
 NAV = [("home", "Дасгал"), ("history", "Түүх"), ("help", "Заавар")]
-APPEARANCE = {"dark": "Харанхуй", "light": "Цайвар", "system": "Систем"}
+APPEARANCE = {"light": "Цайвар", "dark": "Харанхуй", "system": "Систем"}
 # Цонхны элементүүдийн хэмжээ. Linux-д дэлгэцийн томруулалтыг (HiDPI) CustomTkinter өөрөө мэддэггүй,
 # жижиг дэлгэцтэй зөөврийн компьютерт эсрэгээрээ багасгах хэрэгтэй болдог.
 SCALES = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
@@ -32,9 +33,9 @@ def scale_label(v):
 
 
 def app_icon(size=128):
-    """Цонх, taskbar-ын дүрс: цэнхэр дөрвөлжин дээр squat хийж буй цагаан дүрс."""
+    """Цонх, taskbar-ын дүрс: хар дөрвөлжин дээр squat хийж буй цагаан дүрс."""
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ImageDraw.Draw(img).rounded_rectangle([0, 0, size - 1, size - 1], radius=size // 5, fill=(42, 120, 214, 255))
+    ImageDraw.Draw(img).rounded_rectangle([0, 0, size - 1, size - 1], radius=size // 5, fill=(17, 17, 17, 255))
     pad = size // 8
     img.alpha_composite(stick_figure("squat", (size - 2 * pad, size - 2 * pad), color=(255, 255, 255)), (pad, pad))
     return img
@@ -46,6 +47,7 @@ class App(ctk.CTk):
         self.settings = load_settings()
         ctk.set_appearance_mode(self.settings["appearance"])
         ctk.set_default_color_theme("blue")
+        apply_ctk_theme()   # цагаан, минимал өнгө (theme.py)
         ctk.set_widget_scaling(self.settings["ui_scale"])
         super().__init__(fg_color=BG)
         self.log_dir = log_dir  # дасгалын CSV лог ба түүхийн хавтас
@@ -64,11 +66,15 @@ class App(ctk.CTk):
         self.sidebar.grid_propagate(False)
         self.sidebar.grid_columnconfigure(0, weight=1)
         self.sidebar.grid_rowconfigure(10, weight=1)
+        # Цэс ба хуудсын хоорондох нимгэн зураас (CTkFrame 1 пикселийн өргөнийг 0 болгож зурдаггүй тул tk.Frame)
+        self.divider = tk.Frame(self.sidebar, width=1, bd=0, highlightthickness=0, bg=pick(BORDER))
+        self.divider.place(relx=1.0, y=0, relheight=1.0, anchor="ne")
         ctk.CTkLabel(self.sidebar, text="Хэлбэр шалгагч", font=font(20, "bold"), text_color=TEXT, anchor="w").grid(
             row=0, column=0, sticky="ew", padx=20, pady=(24, 0))
         ctk.CTkLabel(self.sidebar, text=f"Squat · Push-up · v{__version__}", font=font(13), text_color=MUTED,
                      anchor="w").grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
         self.nav = {}
+        self._nav_fonts = {False: font(15), True: font(15, "bold")}
         for i, (key, label) in enumerate(NAV):
             b = ctk.CTkButton(self.sidebar, text=label, anchor="w", height=42, font=font(15), corner_radius=10,
                               fg_color="transparent", text_color=TEXT2, hover_color=INSET,
@@ -77,15 +83,14 @@ class App(ctk.CTk):
             self.nav[key] = b
 
         # Таны явц: түүхээс товч дүн (дарвал Түүх хуудас нээгдэнэ)
-        self.progress = ctk.CTkFrame(self.sidebar, fg_color=CARD, corner_radius=12, border_width=1,
-                                     border_color=BORDER)
-        self.progress.grid(row=6, column=0, sticky="ew", padx=12, pady=(18, 0))
+        self.progress = ctk.CTkFrame(self.sidebar, fg_color="transparent", corner_radius=0)
+        self.progress.grid(row=6, column=0, sticky="ew", padx=12, pady=(22, 0))
         self.progress.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(self.progress, text="Таны явц", font=font(13, "bold"), text_color=TEXT, anchor="w").grid(
-            row=0, column=0, sticky="ew", padx=12, pady=(10, 2))
-        self.progress_lbl = ctk.CTkLabel(self.progress, text="", font=font(12), text_color=TEXT2, anchor="w",
+        ctk.CTkLabel(self.progress, text="Таны явц", font=font(12), text_color=MUTED, anchor="w").grid(
+            row=0, column=0, sticky="ew", padx=8, pady=(0, 4))
+        self.progress_lbl = ctk.CTkLabel(self.progress, text="", font=font(13), text_color=TEXT2, anchor="w",
                                          justify="left", wraplength=170)
-        self.progress_lbl.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 10))
+        self.progress_lbl.grid(row=1, column=0, sticky="ew", padx=8)
         for w in (self.progress, *self.progress.winfo_children()):
             w.bind("<Button-1>", lambda e: self.show("history"))
         ctk.CTkLabel(self.sidebar, text="Өнгөний горим", font=font(12), text_color=MUTED, anchor="w").grid(
@@ -181,7 +186,7 @@ class App(ctk.CTk):
         for key, b in self.nav.items():
             active = key == name or (key == "home" and name == "summary")
             b.configure(fg_color=ACCENT_SOFT if active else "transparent",
-                        text_color=ACCENT if active else TEXT2)
+                        text_color=ACCENT if active else TEXT2, font=self._nav_fonts[active])
         if name == "history":
             page.refresh()
         if name != "workout":
@@ -286,6 +291,7 @@ class App(ctk.CTk):
         self.settings["appearance"] = mode
         ctk.set_appearance_mode(mode)
         save_settings(self.settings)
+        self.divider.configure(bg=pick(BORDER))
         # tk.Canvas дээрх графикууд өнгөө өөрөө солихгүй тул дахин зурна
         self.after(50, lambda: [p.refresh_theme() for p in self.pages.values() if hasattr(p, "refresh_theme")])
 

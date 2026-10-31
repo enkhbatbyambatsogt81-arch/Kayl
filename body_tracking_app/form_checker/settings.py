@@ -19,11 +19,12 @@ DEFAULTS = {
     "camera_index": 0,
     "video_path": "",
     "mirror": True,
-    "appearance": "dark",    # dark / light / system
+    "appearance": "light",   # light / dark / system (2.2-оос цагаан анхдагч)
     "onboarded": False,      # анх нээхэд гарах танилцуулгыг үзсэн эсэх
     "level": "normal",       # шалгуурын түвшин: easy / normal / strict (2.0)
     "auto_detect": True,     # дасгалыг биеийн байрлалаар автоматаар таних (2.0)
     "ui_scale": 1.0,         # цонхны элементүүдийн хэмжээ (2.1): 1.0 = 100%
+    "design": 2,             # интерфейсийн загварын хувилбар (2.2: цагаан, минимал)
 }
 
 
@@ -32,10 +33,11 @@ CHOICES = {
     "exercise": ("squat", "pushup"),
     "model": ("lite", "full"),          # GUI-д эдгээр хоёр л байна
     "source": ("camera", "video", "demo"),
-    "appearance": ("dark", "light", "system"),
+    "appearance": ("light", "dark", "system"),
     "level": ("easy", "normal", "strict"),
 }
-RANGES = {"reps": (1, 50), "sets": (1, 10), "rest": (0, 600), "camera_index": (0, 9), "ui_scale": (0.7, 2.5)}
+RANGES = {"reps": (1, 50), "sets": (1, 10), "rest": (0, 600), "camera_index": (0, 9), "ui_scale": (0.7, 2.5),
+          "design": (1, 99)}
 
 
 def _valid(key, value):
@@ -64,6 +66,11 @@ def load_settings(path=SETTINGS_PATH):
             for k, v in saved.items():
                 if k in DEFAULTS and _valid(k, v):
                     data[k] = float(v) if isinstance(DEFAULTS[k], float) else v
+            # 2.2-оос өмнөх файлд «харанхуй» нь анхдагч утгаараа хадгалагдсан байдаг. Шинэ цагаан загварыг
+            # нэг удаа асаана; түүнээс хойш хэрэглэгчийн сонгосон горим хадгалагдана.
+            if "design" not in saved or data["design"] < DEFAULTS["design"]:
+                data["appearance"] = DEFAULTS["appearance"]
+                data["design"] = DEFAULTS["design"]
     except (OSError, ValueError):
         pass
     return data

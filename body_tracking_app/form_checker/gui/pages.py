@@ -17,8 +17,8 @@ from ..config import PushupConfig, SquatConfig
 from ..engine import WorkoutEngine
 from ..history import compare_with_history, load_history
 from ..messages import TIPS, WARNING_TITLES, t
-from .theme import (ACCENT, ACCENT_SOFT, BAD, BORDER, CARD, GOOD, INFO, INSET, LEVEL_COLORS, MUTED, PHASES, PRIMARY,
-                    SECONDARY, SEG, TEXT, TEXT2, WARN, font)
+from .theme import (ACCENT, BAD, BORDER, CARD, FIGURE, GOOD, GOOD_SOFT, GOOD_TEXT, INFO, INSET, LEVEL_COLORS, MUTED,
+                    ON_ACCENT, PHASES, PRIMARY, SECONDARY, SEG, TEXT, TEXT2, VIDEO_BG, WARN, WARN_TEXT, font, pick)
 from .overlays import ConfirmCard, SetupChecklist
 from .widgets import AngleTrace, Card, HistoryChart, RepChart, RepDots, StatTile, stick_figure
 from .worker import EngineWorker
@@ -63,8 +63,8 @@ def issue_title(key):
 
 
 def score_color(score):
-    """Давталтын оноог өнгөөр: 80+ ногоон, 60-79 шар, түүнээс бага улаан."""
-    return GOOD if score >= 80 else WARN if score >= 60 else BAD
+    """Давталтын оноог өнгөөр (бичгийн): 80+ ногоон, 60-79 шар, түүнээс бага улаан."""
+    return GOOD if score >= 80 else WARN_TEXT if score >= 60 else BAD
 
 
 def open_path(path):
@@ -95,7 +95,7 @@ def section_title(master, text):
 def step_title(master, number, text):
     """Нүүр хуудасны алхмын гарчиг: дугуйлсан дугаар + нэр (1 Дасгал, 2 Зорилго, 3 Эх үүсвэр)."""
     f = ctk.CTkFrame(master, fg_color="transparent")
-    ctk.CTkLabel(f, text=str(number), font=font(13, "bold"), text_color="#ffffff", fg_color=ACCENT,
+    ctk.CTkLabel(f, text=str(number), font=font(13, "bold"), text_color=TEXT, fg_color=INSET,
                  corner_radius=12, width=24, height=24).pack(side="left")
     ctk.CTkLabel(f, text=text, font=font(17, "bold"), text_color=TEXT, anchor="w").pack(side="left", padx=(10, 0))
     return f
@@ -119,8 +119,8 @@ class ExerciseCard(Card):
         super().__init__(master)
         self.name = name
         self.grid_columnconfigure(1, weight=1)
-        icon = ctk.CTkImage(light_image=stick_figure(name, (150, 96), color=(42, 120, 214)),
-                            dark_image=stick_figure(name, (150, 96), color=(120, 170, 235)), size=(150, 96))
+        icon = ctk.CTkImage(light_image=stick_figure(name, (150, 96), color=FIGURE[0]),
+                            dark_image=stick_figure(name, (150, 96), color=FIGURE[1]), size=(150, 96))
         self.pic = ctk.CTkLabel(self, text="", image=icon)
         self.pic.grid(row=0, column=0, rowspan=3, padx=(16, 8), pady=16)
         title = ctk.CTkLabel(self, text=EX_TITLES[name], font=font(19, "bold"), text_color=TEXT, anchor="w",
@@ -136,7 +136,7 @@ class ExerciseCard(Card):
         self._texts = ((title, 96), (checks_lbl, 16), (camera_lbl, 16))   # (бичиг, баруун талын зай)
         self._narrow = None
         self.bind("<Configure>", self._on_resize, add="+")
-        self.check = ctk.CTkLabel(self, text="", font=font(13, "bold"), text_color="#ffffff", fg_color=ACCENT,
+        self.check = ctk.CTkLabel(self, text="", font=font(12, "bold"), text_color=ON_ACCENT, fg_color=ACCENT,
                                   corner_radius=10, width=86, height=24)
         self._bind_all(self, lambda e: on_select(name))
 
@@ -165,8 +165,7 @@ class ExerciseCard(Card):
             self._bind_all(child, fn)
 
     def set_selected(self, selected):
-        self.configure(border_color=ACCENT if selected else BORDER, border_width=2 if selected else 1,
-                       fg_color=ACCENT_SOFT if selected else CARD)
+        self.configure(border_color=ACCENT if selected else BORDER, border_width=2 if selected else 1)
         if selected:
             self.check.configure(text="Сонгосон", fg_color=ACCENT)
             self.check.place(relx=1.0, x=-14, y=14, anchor="ne")
@@ -453,7 +452,7 @@ class HomePage(ctk.CTkFrame):
         found = result.get("found") or []
         if not found:
             error = f" ({result['error']})" if result.get("error") else ""
-            self.cam_status.configure(text=f"Камер олдсонгүй{error}. {camera_help()}", text_color=WARN)
+            self.cam_status.configure(text=f"Камер олдсонгүй{error}. {camera_help()}", text_color=WARN_TEXT)
             return
         values = [str(i) for i in found]
         self.cam.configure(values=values)
@@ -464,7 +463,7 @@ class HomePage(ctk.CTkFrame):
         self.cam_status.configure(text=f"Ажиллаж буй камер: {names}. Одоо {self.cam.get()}-р камерыг сонгосон.",
                                   text_color=GOOD)
 
-    def show_notice(self, text, color=WARN):
+    def show_notice(self, text, color=WARN_TEXT):
         self.notice.configure(text=text, text_color=color)
 
 
@@ -494,7 +493,7 @@ class WorkoutPage(ctk.CTkFrame):
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         left.grid_columnconfigure(0, weight=1)
         left.grid_rowconfigure(0, weight=1)
-        self.video_box = ctk.CTkFrame(left, fg_color="#000000", corner_radius=14)
+        self.video_box = ctk.CTkFrame(left, fg_color=VIDEO_BG, corner_radius=14)
         self.video_box.grid(row=0, column=0, sticky="nsew")
         trace_card = Card(left)
         trace_card.grid(row=1, column=0, sticky="ew", pady=(10, 0))
@@ -503,17 +502,16 @@ class WorkoutPage(ctk.CTkFrame):
         self.trace_title.grid(row=0, column=0, sticky="w", padx=16, pady=(10, 0))
         self.trace = AngleTrace(trace_card)
         self.trace.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
-        self.video = tk.Label(self.video_box, bg="#000000", bd=0)
+        self.video = tk.Label(self.video_box, bg=pick(VIDEO_BG), bd=0)
         self.video.place(relx=0.5, rely=0.5, anchor="center")
-        self.overlay = ctk.CTkLabel(self.video_box, text="", font=font(22, "bold"), text_color="#ffffff",
-                                    fg_color="#202020", corner_radius=12, wraplength=520)
+        self.overlay = ctk.CTkLabel(self.video_box, text="", font=font(22, "bold"), text_color=TEXT,
+                                    fg_color=CARD, corner_radius=12, wraplength=520)
         self.checklist = SetupChecklist(self.video_box)
         # Камер нээгдэхгүй үед мухардалд орохгүйн тулд дараагийн алхмыг санал болгоно
         self.err_actions = ctk.CTkFrame(self.video_box, fg_color="transparent")
         ctk.CTkButton(self.err_actions, text="Демо горимоор туршиж үзэх", height=40, font=font(15), **PRIMARY,
                       command=lambda: self.app.start_workout(source="demo")).pack(side="left", padx=5)
-        ctk.CTkButton(self.err_actions, text="Нүүр хуудас", height=40, font=font(15), fg_color="#2c2c2c",
-                      hover_color="#383838", text_color="#f2f2f0",
+        ctk.CTkButton(self.err_actions, text="Нүүр хуудас", height=40, font=font(15), **dict(SECONDARY, fg_color=CARD),
                       command=self.app.stop_workout).pack(side="left", padx=5)
         self.video_box.bind("<Configure>", self._on_resize)
 
@@ -638,7 +636,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.pause_btn.configure(text="Түр зогсоох (P)")
         self._update_sound_btn()
         self._reset_panel(s, kind)
-        self.video.configure(image="")
+        self.video.configure(image="", bg=pick(VIDEO_BG))   # өнгөний горимд тааруулна
         self._photo = None
         self.checklist.hide()
         self.confirm.close()
@@ -868,8 +866,8 @@ class WorkoutPage(ctk.CTkFrame):
         if ex not in self._setup_icons:
             size = (64, 92) if ex == "squat" else (120, 60)
             self._setup_icons[ex] = ctk.CTkImage(
-                light_image=stick_figure(ex, size, color=(42, 120, 214), start=True),
-                dark_image=stick_figure(ex, size, color=(120, 170, 235), start=True), size=size)
+                light_image=stick_figure(ex, size, color=FIGURE[0], start=True),
+                dark_image=stick_figure(ex, size, color=FIGURE[1], start=True), size=size)
         self.tip_img.configure(image=self._setup_icons[ex])
         self.tip_img.grid(row=0, column=2, rowspan=2, padx=(0, 12), pady=10)
         for lbl in (self.tip_lbl, self.tip_detail):
@@ -889,9 +887,8 @@ class WorkoutPage(ctk.CTkFrame):
         ex = ef.exercise
         self._sync_exercise(ex)
         self._set("ex", self.ex_lbl, text=EX_TITLES[ex])
-        label, color = PHASES.get(wv.phase, ("", INFO))
-        self._set("phase", self.phase, text=label, fg_color=color,
-                  text_color="#141414" if color == WARN else "#ffffff")
+        label, bg, fg = PHASES.get(wv.phase, ("", "transparent", TEXT))
+        self._set("phase", self.phase, text=label, fg_color=bg, text_color=fg)
         free = wv.target <= 0
         n = wv.total_reps if free else len(wv.set_reps)
         self._set("num", self.rep_num, text=str(n))
@@ -1029,7 +1026,7 @@ class SummaryPage(ctk.CTkScrollableFrame):
             ctk.CTkLabel(card, text="✓  Алдаа гараагүй. Маш сайн байна!", font=font(15, "bold"),
                          text_color=GOOD).grid(row=1, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 16))
         # Алдаа (давталтыг буруу болгосон) улаанаар, сануулга (зөвхөн оноо бууруулсан) шараар
-        items = [(k, n, BAD) for k, n in s["issues"]] + [(k, n, WARN) for k, n in s["warnings"]]
+        items = [(k, n, BAD) for k, n in s["issues"]] + [(k, n, WARN_TEXT) for k, n in s["warnings"]]
         for i, (key, n, color) in enumerate(items, 1):
             ctk.CTkLabel(card, text=f"{n}×", font=font(18, "bold"), text_color=color, width=50).grid(
                 row=2 * i - 1, column=0, rowspan=2, sticky="n", padx=(14, 4), pady=(4, 10))
@@ -1065,8 +1062,8 @@ class SummaryPage(ctk.CTkScrollableFrame):
                      f"{prev.correct} зөв. {note}", font=font(13), text_color=TEXT2, anchor="w").grid(
             row=1, column=1, sticky="w", pady=(0, 12))
         if cmp["new_best"]:
-            ctk.CTkLabel(card, text="★  Шинэ дээд амжилт", font=font(13, "bold"), text_color="#ffffff",
-                         fg_color=GOOD, corner_radius=8, height=28).grid(row=0, column=2, rowspan=2, padx=16)
+            ctk.CTkLabel(card, text="★  Шинэ дээд амжилт", font=font(13, "bold"), text_color=GOOD_TEXT,
+                         fg_color=GOOD_SOFT, corner_radius=8, height=28).grid(row=0, column=2, rowspan=2, padx=16)
         return card
 
     def refresh_theme(self):

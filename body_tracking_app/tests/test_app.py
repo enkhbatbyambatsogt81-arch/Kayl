@@ -194,6 +194,16 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(s["appearance"], "light")
         self.assertNotIn("unknown", s)
 
+    def test_white_design_once_for_old_files(self):
+        """2.2: хуучин файлын «харанхуй» (тэр үеийн анхдагч) нэг удаа цагаан болно, дараа нь сонголт хадгалагдана."""
+        self.assertEqual(DEFAULTS["appearance"], "light")
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump({"appearance": "dark", "reps": 12}, f)
+        s = load_settings(self.path)
+        self.assertEqual((s["appearance"], s["design"], s["reps"]), ("light", DEFAULTS["design"], 12))
+        save_settings(dict(s, appearance="dark"), self.path)   # хэрэглэгч дахин харанхуйг сонгосон
+        self.assertEqual(load_settings(self.path)["appearance"], "dark")
+
     def test_corrupt_file(self):
         for text in ("{not json", "[1, 2, 3]", ""):
             with open(self.path, "w", encoding="utf-8") as f:

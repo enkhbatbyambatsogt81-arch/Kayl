@@ -10,10 +10,9 @@ from __future__ import annotations
 import customtkinter as ctk
 from PIL import Image, ImageDraw
 
-from .theme import ACCENT, BG, BORDER, GOOD, INSET, PRIMARY, SECONDARY, TEXT, TEXT2, WARN, font
+from .theme import (ACCENT, BG, BORDER, BORDER_STRONG, CARD, FIGURE, GOOD, INSET, MUTED, PRIMARY, SECONDARY, TEXT,
+                    TEXT2, WARN_TEXT, font)
 from .widgets import Card, camera_figure, stick_figure
-
-LIGHT_FIG, DARK_FIG = (42, 120, 214), (120, 170, 235)
 
 ONBOARDING_STEPS = [
     ("Дасгалаа сонго", [
@@ -32,7 +31,7 @@ ONBOARDING_STEPS = [
         "3-2-1 гэж тоолоод эхэлнэ.",
         "Зорилтот гүнд хүрэхэд богино «бип» дуу гарна. Тэгвэл өндийж болно.",
         "Давталт бүрийн дараа ногоон цэг = зөв, улаан = алдаатай. Юуг засахыг баруун талд бичнэ.",
-        "Дуусгах бол E, түр зогсоох бол P, бүтэн дэлгэц F11.",
+        "Дуусгах бол E, түр зогсоох бол P, бүтэн дэлгэц F.",
     ]),
 ]
 
@@ -80,14 +79,14 @@ class Onboarding(ctk.CTkFrame):
         self.on_close, self.on_demo = on_close, on_demo
         self.step = 0
         self._open = False
-        self.images = [ctk.CTkImage(light_image=_step_image(i, LIGHT_FIG), dark_image=_step_image(i, DARK_FIG),
+        self.images = [ctk.CTkImage(light_image=_step_image(i, FIGURE[0]), dark_image=_step_image(i, FIGURE[1]),
                                     size=(320, 250)) for i in range(len(ONBOARDING_STEPS))]
         card = Card(self, border_width=1, width=880, height=480)  # тогтмол хэмжээ: алхам солиход үсрэхгүй
         card.place(relx=0.5, rely=0.5, anchor="center")
         card.grid_propagate(False)
         card.grid_columnconfigure(1, weight=1)
         card.grid_rowconfigure(2, weight=1)
-        self.kicker = ctk.CTkLabel(card, text="", font=font(13, "bold"), text_color=ACCENT, anchor="w")
+        self.kicker = ctk.CTkLabel(card, text="", font=font(12, "bold"), text_color=MUTED, anchor="w")
         self.kicker.grid(row=0, column=0, columnspan=2, sticky="w", padx=28, pady=(24, 0))
         self.title = ctk.CTkLabel(card, text="", font=font(26, "bold"), text_color=TEXT, anchor="w")
         self.title.grid(row=1, column=0, columnspan=2, sticky="w", padx=28, pady=(2, 12))
@@ -183,7 +182,7 @@ class ConfirmCard(Card):
     """Цонхны дотор гарах асуулт. buttons: [(текст, функц, "primary"|"secondary"), ...]."""
 
     def __init__(self, master, title, text, buttons):
-        super().__init__(master, border_width=2, border_color=ACCENT)
+        super().__init__(master, border_width=1, border_color=BORDER_STRONG)
         self.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self, text=title, font=font(22, "bold"), text_color=TEXT, anchor="w").grid(
             row=0, column=0, sticky="w", padx=26, pady=(22, 4))
@@ -215,10 +214,10 @@ class ConfirmCard(Card):
 
 
 class SetupChecklist(ctk.CTkFrame):
-    """Видеон дээр гарах «эхлэхэд юу дутуу байна» жагсаалт. Видео үргэлж харанхуй дэвсгэртэй тул
-    өнгөний горимоос үл хамааран бараан карт ашиглана. Холоос уншигдахаар том фонттой."""
+    """Видеон дээр гарах «эхлэхэд юу дутуу байна» жагсаалт. Бусад карттай адил өнгөтэй (цайвар горимд
+    цагаан), камерын дүрс дээр ч уншигдана. Холоос уншигдахаар том фонттой."""
 
-    FG, MUTE, BGC = "#f2f2f0", "#9a9a94", "#1d1d1d"
+    FG, MUTE, BGC = TEXT, MUTED, CARD
     ITEMS = {
         "squat": ("Камер таныг харж байна", "Бүтэн бие кадрт багтсан", "Шулуун зогссон",
                   "1 секунд хөдөлгөөнгүй байх"),
@@ -227,7 +226,7 @@ class SetupChecklist(ctk.CTkFrame):
     }
 
     def __init__(self, master):
-        super().__init__(master, fg_color=self.BGC, corner_radius=12, border_width=1, border_color="#3a3a3a")
+        super().__init__(master, fg_color=self.BGC, corner_radius=12, border_width=1, border_color=BORDER_STRONG)
         self.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(self, text="Эхлэхэд бэлдэж байна", font=font(17, "bold"), text_color=self.FG,
                      anchor="w").grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(12, 6))
@@ -239,7 +238,7 @@ class SetupChecklist(ctk.CTkFrame):
             tx.grid(row=i + 1, column=1, sticky="w", padx=(0, 16), pady=2)
             self.icons.append(ic)
             self.texts.append(tx)
-        self.hold = ctk.CTkProgressBar(self, height=8, progress_color=GOOD, fg_color="#3a3a3a", width=220)
+        self.hold = ctk.CTkProgressBar(self, height=8, progress_color=GOOD, fg_color=INSET, width=220)
         self.hold.grid(row=5, column=1, sticky="w", padx=(0, 16), pady=(2, 4))
         self.hold.set(0)
         ctk.CTkLabel(self, text="Хүлээлгүй эхлэх бол Space", font=font(12), text_color=self.MUTE, anchor="w").grid(
@@ -258,7 +257,7 @@ class SetupChecklist(ctk.CTkFrame):
                 ic.configure(text="✓", text_color=GOOD)
                 tx.configure(text=label, text_color=self.FG)
             elif i == current:
-                ic.configure(text="›", text_color=WARN)
+                ic.configure(text="›", text_color=WARN_TEXT)
                 tx.configure(text=label, text_color=self.FG)
             else:
                 ic.configure(text="○", text_color=self.MUTE)
