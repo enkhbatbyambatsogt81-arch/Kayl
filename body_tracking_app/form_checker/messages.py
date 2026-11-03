@@ -84,7 +84,7 @@ WARNING_TITLES = {
 
 EXERCISE_NAMES = {
     "squat": ("Суулт (Squat)", "Squat"),
-    "pushup": ("Гар дээр суниалт (Push-up)", "Push-up"),
+    "pushup": ("Шалнаас түлхэлт (Push-up)", "Push-up"),
 }
 
 STATE_NAMES = {

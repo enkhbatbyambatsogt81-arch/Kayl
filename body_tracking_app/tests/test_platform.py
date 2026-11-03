@@ -60,6 +60,26 @@ class ModelPathTest(unittest.TestCase):
                 self.assertIsNone(est.process(np.zeros((240, 320, 3), np.uint8), 0))  # хоосон кадрт хүн алга
 
 
+class AppPathsTest(unittest.TestCase):
+    def test_user_data_dir_per_platform(self):
+        """Татаж авсан бэлэн файлаас ажиллахад тохиргоо, түүх хэрэглэгчийн хавтсанд хадгалагдана."""
+        from form_checker.paths import APP_ID, user_data_dir
+        self.assertEqual(user_data_dir("win32", {"APPDATA": r"C:\Users\a\AppData\Roaming"}, "/h"),
+                         os.path.join(r"C:\Users\a\AppData\Roaming", APP_ID))
+        self.assertEqual(user_data_dir("darwin", {}, "/Users/a"),
+                         os.path.join("/Users/a", "Library", "Application Support", APP_ID))
+        self.assertEqual(user_data_dir("linux", {}, "/home/a"), os.path.join("/home/a", ".local", "share", APP_ID))
+        self.assertEqual(user_data_dir("linux", {"XDG_DATA_HOME": "/x"}, "/home/a"), os.path.join("/x", APP_ID))
+
+    def test_source_run_keeps_files_in_app_folder(self):
+        from form_checker import paths, session, settings
+        self.assertFalse(paths.FROZEN)
+        self.assertEqual(paths.DATA_DIR, paths.SOURCE_DIR)
+        self.assertEqual(os.path.dirname(settings.SETTINGS_PATH), paths.SOURCE_DIR)
+        self.assertEqual(session.LOG_DIR, os.path.join(paths.SOURCE_DIR, "logs"))
+        self.assertTrue(os.path.isdir(os.path.join(paths.RES_DIR, "models")))
+
+
 class ScaleSettingTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -120,7 +140,7 @@ class GuiScaleTest(unittest.TestCase):
         self.pump(0.5)
         self.assertEqual(self.saved.get("ui_scale"), 1.25)
         managed = {k: bool(getattr(p, "_parent_frame", p).winfo_manager()) for k, p in app.pages.items()}
-        self.assertEqual(managed, {"home": True, "workout": False, "summary": False, "history": False,
+        self.assertEqual(managed, {"start": False, "home": True, "workout": False, "summary": False, "history": False,
                                    "help": False})
         self.assertFalse(home.demo_lbl.winfo_manager())
         self.assertFalse(home.video_btn.winfo_manager())
@@ -142,6 +162,7 @@ class GuiScaleTest(unittest.TestCase):
         from form_checker.gui import pages
 
         home = self.app.pages["home"]
+        self.app.show("home")
         with mock.patch.object(pages, "find_cameras", return_value=[0, 2]):
             home.scan_cameras()
             self.assertTrue(home.scanning)

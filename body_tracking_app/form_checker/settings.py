@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import os
 
-SETTINGS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json")
+from .paths import DATA_DIR
+
+SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
 
 DEFAULTS = {
     "exercise": "squat",
@@ -22,9 +24,9 @@ DEFAULTS = {
     "appearance": "light",   # light / dark / system (2.2-оос цагаан анхдагч)
     "onboarded": False,      # анх нээхэд гарах танилцуулгыг үзсэн эсэх
     "level": "normal",       # шалгуурын түвшин: easy / normal / strict (2.0)
-    "auto_detect": True,     # дасгалыг биеийн байрлалаар автоматаар таних (2.0)
+    "auto_detect": False,    # дасгалыг биеийн байрлалаар автоматаар таних (2.0; 2.3-аас унтраалттай)
     "ui_scale": 1.0,         # цонхны элементүүдийн хэмжээ (2.1): 1.0 = 100%
-    "design": 2,             # интерфейсийн загварын хувилбар (2.2: цагаан, минимал)
+    "design": 3,             # интерфейсийн загварын хувилбар (2.2: цагаан, минимал; 2.3: эхлэх урсгал)
 }
 
 
@@ -68,9 +70,13 @@ def load_settings(path=SETTINGS_PATH):
                     data[k] = float(v) if isinstance(DEFAULTS[k], float) else v
             # 2.2-оос өмнөх файлд «харанхуй» нь анхдагч утгаараа хадгалагдсан байдаг. Шинэ цагаан загварыг
             # нэг удаа асаана; түүнээс хойш хэрэглэгчийн сонгосон горим хадгалагдана.
-            if "design" not in saved or data["design"] < DEFAULTS["design"]:
+            old = data["design"] if "design" in saved else 1
+            if old < 2:
                 data["appearance"] = DEFAULTS["appearance"]
-                data["design"] = DEFAULTS["design"]
+            # 2.3: дасгалыг хэрэглэгч эхлэх урсгалд өөрөө сонгодог тул автомат танилтыг нэг удаа унтраана
+            if old < 3:
+                data["auto_detect"] = False
+            data["design"] = DEFAULTS["design"]
     except (OSError, ValueError):
         pass
     return data
@@ -78,6 +84,7 @@ def load_settings(path=SETTINGS_PATH):
 
 def save_settings(data, path=SETTINGS_PATH):
     try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump({k: data[k] for k in DEFAULTS if k in data}, f, ensure_ascii=False, indent=2)
         return True

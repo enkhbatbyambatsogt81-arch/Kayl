@@ -16,11 +16,12 @@ from ..settings import load_settings, save_settings
 from . import ctk_fixes
 from .overlays import Onboarding
 from .pages import EX_TITLES, HelpPage, HistoryPage, HomePage, SummaryPage, WorkoutPage
+from .start import APP_NAME, StartFlow
 from .theme import (ACCENT, ACCENT_SOFT, BG, BORDER, INSET, MUTED, SEG, SIDEBAR, TEXT, TEXT2, apply_ctk_theme, font,
                     pick)
 from .widgets import stick_figure
 
-NAV = [("home", "Дасгал"), ("history", "Түүх"), ("help", "Заавар")]
+NAV = [("start", "Эхлэх"), ("home", "Тохиргоо"), ("history", "Түүх"), ("help", "Заавар")]
 APPEARANCE = {"light": "Цайвар", "dark": "Харанхуй", "system": "Систем"}
 # Цонхны элементүүдийн хэмжээ. Linux-д дэлгэцийн томруулалтыг (HiDPI) CustomTkinter өөрөө мэддэггүй,
 # жижиг дэлгэцтэй зөөврийн компьютерт эсрэгээрээ багасгах хэрэгтэй болдог.
@@ -51,7 +52,7 @@ class App(ctk.CTk):
         ctk.set_widget_scaling(self.settings["ui_scale"])
         super().__init__(fg_color=BG)
         self.log_dir = log_dir  # дасгалын CSV лог ба түүхийн хавтас
-        self.title("Дасгалын хэлбэр шалгагч")
+        self.title(APP_NAME)
         self._set_icon()
         ui = self.settings["ui_scale"]
         self._fit_to_screen(round(1320 * ui), round(820 * ui))
@@ -69,9 +70,10 @@ class App(ctk.CTk):
         # Цэс ба хуудсын хоорондох нимгэн зураас (CTkFrame 1 пикселийн өргөнийг 0 болгож зурдаггүй тул tk.Frame)
         self.divider = tk.Frame(self.sidebar, width=1, bd=0, highlightthickness=0, bg=pick(BORDER))
         self.divider.place(relx=1.0, y=0, relheight=1.0, anchor="ne")
-        ctk.CTkLabel(self.sidebar, text="Хэлбэр шалгагч", font=font(20, "bold"), text_color=TEXT, anchor="w").grid(
+        ctk.CTkLabel(self.sidebar, text="Ухаалаг\nдасгалжуулагч", font=font(20, "bold"), text_color=TEXT, anchor="w",
+                     justify="left").grid(
             row=0, column=0, sticky="ew", padx=20, pady=(24, 0))
-        ctk.CTkLabel(self.sidebar, text=f"Squat · Push-up · v{__version__}", font=font(13), text_color=MUTED,
+        ctk.CTkLabel(self.sidebar, text=f"Суулт · Түлхэлт · v{__version__}", font=font(13), text_color=MUTED,
                      anchor="w").grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
         self.nav = {}
         self._nav_fonts = {False: font(15), True: font(15, "bold")}
@@ -115,6 +117,7 @@ class App(ctk.CTk):
         self.content.grid_columnconfigure(0, weight=1)
         self.content.grid_rowconfigure(0, weight=1)
         self.pages = {
+            "start": StartFlow(self.content, self),
             "home": HomePage(self.content, self),
             "workout": WorkoutPage(self.content, self),
             "summary": SummaryPage(self.content, self),
@@ -130,9 +133,8 @@ class App(ctk.CTk):
             self.createcommand("tk::mac::Quit", self.on_close)
             # Terminal-аас эхлүүлэхэд цонх ард нь нээгдэх нь бий
             self.after(150, self._bring_to_front)
-        self.show("home")
-        if not self.settings.get("onboarded"):
-            self.after(300, self.show_onboarding)  # анх нээхэд л гарна; «Заавар» хуудаснаас дахин нээж болно
+        # 2.3: апп эхлэх урсгалаар нээгдэнэ (тавтай морил -> түвшин -> дасгал). Танилцуулгыг «Заавар»-аас үзнэ.
+        self.show("start")
 
     def _set_icon(self):
         try:
@@ -178,8 +180,8 @@ class App(ctk.CTk):
         page = self.pages[name]
         page.grid(row=0, column=0, sticky="nsew")
         self.current = name
-        # Дасгалын үед зүүн цэсийг нууж видеог томруулна
-        if name == "workout":
+        # Дасгал ба эхлэх урсгалын үед зүүн цэсийг нууна (видео том, урсгал цэвэрхэн)
+        if name in ("workout", "start"):
             self.sidebar.grid_remove()
         else:
             self.sidebar.grid()
@@ -189,6 +191,8 @@ class App(ctk.CTk):
                         text_color=ACCENT if active else TEXT2, font=self._nav_fonts[active])
         if name == "history":
             page.refresh()
+        if name == "start":
+            page.open()
         if name != "workout":
             self.refresh_progress()
         self.focus_set()
@@ -242,7 +246,7 @@ class App(ctk.CTk):
         self.pages["workout"].start(dict(s, source=source) if source else s)
 
     def stop_workout(self):
-        self.show("home")
+        self.show("start")
 
     def show_summary(self, ended=False):
         if self.current != "workout":
@@ -275,6 +279,9 @@ class App(ctk.CTk):
             return "break"
         if k == "escape" and self.fullscreen:  # эхлээд бүтэн дэлгэцээс гарна
             self.toggle_fullscreen(False)
+            return "break"
+        if self.current == "start":
+            self.pages["start"].on_key(k)
             return "break"
         if self.current == "workout":
             actions = {"space": page.skip, "p": page.toggle_pause, "s": page.toggle_sound, "e": page.finish,

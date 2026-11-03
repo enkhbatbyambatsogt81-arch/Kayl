@@ -204,6 +204,15 @@ class SettingsTest(unittest.TestCase):
         save_settings(dict(s, appearance="dark"), self.path)   # хэрэглэгч дахин харанхуйг сонгосон
         self.assertEqual(load_settings(self.path)["appearance"], "dark")
 
+    def test_auto_detect_off_once_for_23(self):
+        """2.3: дасгалыг эхлэх урсгалд сонгодог тул 2.2-ын файлын автомат танилт нэг удаа унтарна."""
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump({"design": 2, "appearance": "dark", "auto_detect": True}, f)
+        s = load_settings(self.path)
+        self.assertEqual((s["appearance"], s["auto_detect"], s["design"]), ("dark", False, 3))
+        save_settings(dict(s, auto_detect=True), self.path)
+        self.assertTrue(load_settings(self.path)["auto_detect"])
+
     def test_corrupt_file(self):
         for text in ("{not json", "[1, 2, 3]", ""):
             with open(self.path, "w", encoding="utf-8") as f:
@@ -252,23 +261,42 @@ class GuiSmokeTest(unittest.TestCase):
                     app.update()
                     time.sleep(0.01)
 
-            pump(0.6, lambda: app.onboarding.visible)
-            self.assertTrue(app.onboarding.visible)                  # анх нээхэд танилцуулга гарна
+            pump(0.6)
+            self.assertEqual(app.current, "start")                   # 2.3: эхлэх урсгалаар нээгдэнэ
+            self.assertFalse(app.onboarding.visible)
+            flow = app.pages["start"]
+            self.assertEqual(flow.step, "welcome")
+            app._on_key(type("E", (), {"keysym": "Return"})())       # Enter -> түвшин
+            self.assertEqual(flow.step, "level")
+            flow.pick_level("easy")
+            self.assertEqual((app.settings["level"], app.settings["reps"], app.settings["sets"]), ("easy", 8, 2))
+            self.assertTrue(flow.level_cards["easy"].cget("border_width") == 2)
+            flow.pick_level("normal")
+            flow.next()
+            self.assertEqual(flow.step, "exercise")
+            flow.pick_exercise("pushup")
+            self.assertEqual(app.settings["exercise"], "pushup")
+            flow.back()
+            self.assertEqual(flow.step, "level")
+            flow.pick_exercise("squat")
+            self.assertFalse(app.settings["auto_detect"])
+            app.show_onboarding()                                    # «Заавар»-аас танилцуулга нээгдэнэ
+            self.assertTrue(app.onboarding.visible)
             for _ in range(3):
                 app.onboarding.next()
             self.assertFalse(app.onboarding.visible)
             self.assertTrue(saved.get("onboarded"))
-            self.assertEqual(app.current, "home")
+            app.show("home")
             home = app.pages["home"]
-            home._on_preset("Эхлэгч")
+            home._on_preset("Анхан шат")
             self.assertEqual((app.settings["reps"], app.settings["sets"]), (8, 2))
             home._on_reps(3)                                         # гараар өөрчилбөл «Өөрөө»
             home._on_sets("1")
             self.assertEqual(home.preset.get(), "Өөрөө")
-            home._on_level("Хатуу")                                  # 2.0: шалгуурын түвшин
+            home._on_level("Нарийн")                                  # 2.0: шалгуурын түвшин
             self.assertEqual(app.settings["level"], "strict")
             self.assertIn("90°", home.level_lbl.cget("text"))
-            home._on_level("Энгийн")
+            home._on_level("Стандарт")
             app.start_workout()
             self.assertEqual(app.current, "workout")
             self.assertEqual(saved.get("source"), "demo")
@@ -298,10 +326,10 @@ class GuiSmokeTest(unittest.TestCase):
             app.show("history")
             pump(0.3)
             hist = app.pages["history"]
-            hist.filter.set("Push-up")
+            hist.filter.set("Түлхэлт")
             hist.refresh()
             self.assertIn("алга", hist.empty.cget("text"))           # push-up хийгээгүй
-            hist.filter.set("Squat")
+            hist.filter.set("Суулт")
             hist.refresh()
             self.assertEqual(hist.t_sessions.value.cget("text"), "1")
             app.show("help")

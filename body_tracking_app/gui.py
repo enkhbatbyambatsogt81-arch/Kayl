@@ -9,6 +9,9 @@ import sys
 from form_checker import safe_console
 
 safe_console()
+if "--self-test" in sys.argv:  # бэлэн файл зөв угсрагдсан эсэхийг шалгах (цонх нээхгүй)
+    from form_checker.selftest import run_self_test
+    sys.exit(run_self_test())
 try:
     from form_checker.gui.app import run
 except ImportError as e:  # customtkinter эсвэл tkinter суугаагүй

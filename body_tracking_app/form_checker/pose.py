@@ -11,6 +11,8 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
+from .paths import RES_DIR
+
 # MediaPipe-ийн 33 цэгийн индекс (https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker)
 NOSE = 0
 L_SHOULDER, R_SHOULDER = 11, 12
@@ -39,7 +41,7 @@ SKELETON = [
 
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
              "pose_landmarker_{v}/float16/latest/pose_landmarker_{v}.task")
-MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
+MODELS_DIR = os.path.join(RES_DIR, "models")
 
 
 @dataclass

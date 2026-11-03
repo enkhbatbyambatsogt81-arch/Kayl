@@ -8,6 +8,7 @@ import time
 import numpy as np
 
 from .messages import EXERCISE_NAMES, t
+from .paths import DATA_DIR
 
 
 class PerfMeter:
@@ -70,8 +71,8 @@ def print_summary(workouts, perf: PerfMeter, lang="mn"):
               f"(p95 {s['pose_ms_p95']:.1f} ms), нийт боловсруулалт {s['total_ms_mean']:.1f} ms/кадр")
 
 
-# Аппын хавтас доторх logs/ (програмыг аль хавтаснаас ажиллуулсан ч нэг газар хадгална)
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+# Дасгалын түүх: эх кодоос ажиллуулахад аппын хавтас доторх logs/, бэлэн файлаас бол хэрэглэгчийн хавтас
+LOG_DIR = os.path.join(DATA_DIR, "logs")
 
 
 def save_csv(workouts, folder=LOG_DIR):

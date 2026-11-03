@@ -1,4 +1,4 @@
-"""Цонхны хуудсууд: Нүүр (дасгал сонгох), Дасгал (камер), Дүн, Түүх, Заавар."""
+"""Цонхны хуудсууд: Тохиргоо (дасгал сонгох), Дасгал (камер), Дүн, Түүх, Заавар. Эхлэх урсгал нь start.py-д."""
 
 from __future__ import annotations
 
@@ -23,9 +23,9 @@ from .overlays import ConfirmCard, SetupChecklist
 from .widgets import AngleTrace, Card, HistoryChart, RepChart, RepDots, StatTile, stick_figure
 from .worker import EngineWorker
 
-EX_TITLES = {"squat": "Суулт (Squat)", "pushup": "Гар дээр суниалт (Push-up)"}
+EX_TITLES = {"squat": "Суулт (Squat)", "pushup": "Шалнаас түлхэлт (Push-up)"}
 EX_INFO = {
-    "squat": ("Шалгах зүйлс: суултын гүн, их биеийн хазайлт, өвдөг дотогш орох, өсгий өргөгдөх",
+    "squat": ("Шалгах зүйлс: суултын гүн, нурууны байрлал, өвдөг дотогш орох, өсгий өргөгдөх",
               "Камер: хажуугаас (эсвэл урдаас), 2–3 м зайд, бүтэн бие харагдахаар"),
     "pushup": ("Шалгах зүйлс: тохойн гүн, бэлхүүс унжих, бөгс өргөх, гараа бүрэн тэнийлгэх",
                "Камер: зөвхөн хажуугаас, шалнаас 30–60 см өндөрт"),
@@ -43,18 +43,18 @@ KEY_HINT = "Enter = эхлэх.  Дасгалын үед: Space алгасах �
 CAMERA_NOTE = "0 нь ихэвчлэн компьютерийн өөрийн камер. Олон камертай бол «Камер хайх» дарж ажиллаж буйг нь олно."
 DEMO_NOTE = ("Камергүйгээр зохиомол хүн зөв ба алдаатай давталт хийнэ. Апп яг камертай үеийнх шиг тоолж, "
              "үнэлнэ. Хичээл дээр үзүүлэх эсвэл камер ажиллахгүй үед туршихад тохиромжтой.")
-HISTORY_FILTERS = {"Бүгд": None, "Squat": "squat", "Push-up": "pushup"}
+HISTORY_FILTERS = {"Бүгд": None, "Суулт": "squat", "Түлхэлт": "pushup"}
 MODELS = {"lite": "Хурдан (lite)", "full": "Нарийн (full)"}
 # Бэлэн зорилго: (нэг сетийн давталт, сет, амралт секунд). Анх удаа ашиглагч гурван гулсуурыг тааруулахгүйгээр
 # нэг товчоор сонгоно. Гулсуураар өөр утга сонговол «Өөрөө» гэж харагдана.
-PRESETS = {"Эхлэгч": (8, 2, 60), "Дунд": (10, 3, 60), "Ахисан": (15, 4, 90)}
+PRESETS = {"Анхан шат": (8, 2, 60), "Дунд шат": (10, 3, 60), "Ахисан шат": (15, 4, 90)}
 CUSTOM = "Өөрөө"
 # Шалгуурын түвшин (2.0): босго утгууд config.LEVEL_OVERRIDES-д
-LEVEL_LABELS = {"easy": "Зөөлөн", "normal": "Энгийн", "strict": "Хатуу"}
+LEVEL_LABELS = {"easy": "Уян", "normal": "Стандарт", "strict": "Нарийн"}
 LEVEL_HINTS = {
-    "easy": "Зөөлөн: өвдөг 110°, тохой 100° хүртэл бууход хангалттай. Эхлэгч, өвдөлттэй үед.",
-    "normal": "Энгийн: өвдөг 100°, тохой 90° хүртэл бууна (анхдагч).",
-    "strict": "Хатуу: өвдөг 90°, тохой 80°, их бие илүү босоо, хэмнэл удаан байх ёстой.",
+    "easy": "Уян: өвдөг 110°, тохой 100° хүртэл нугарахад тооцогдоно. Анхан шат, бэртлээс сэргэх үед.",
+    "normal": "Стандарт: өвдөг 100°, тохой 90° хүртэл нугарна (анхдагч).",
+    "strict": "Нарийн: өвдөг 90°, тохой 80°, нуруу илүү босоо, хэмнэл тайван байх ёстой.",
 }
 
 
@@ -187,7 +187,7 @@ class HomePage(ctk.CTkFrame):
         body = ctk.CTkScrollableFrame(self, fg_color="transparent")
         body.grid(row=0, column=0, sticky="nsew")
         body.grid_columnconfigure((0, 1), weight=1, uniform="col")
-        header(body, "Шинэ дасгал", "Дасгал, зорилго, эх үүсвэрээ сонгоод «Эхлэх» дарна.").grid(
+        header(body, "Дасгалын тохиргоо", "Дасгал, зорилго, эх үүсвэрээ нарийвчлан тохируулаад «Эхлэх» дарна.").grid(
             row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 10))
 
         # --- 1. Дасгал
@@ -258,7 +258,7 @@ class HomePage(ctk.CTkFrame):
         self.model = ctk.CTkSegmentedButton(opt, values=list(MODELS.values()), command=self._on_model,
                                             font=font(13), **SEG)
         self.model.grid(row=3, column=1, sticky="ew", padx=(0, 18), pady=6)
-        ctk.CTkLabel(opt, text="Шалгуур", font=font(14), text_color=TEXT2).grid(row=4, column=0, sticky="w",
+        ctk.CTkLabel(opt, text="Техникийн шалгуур", font=font(14), text_color=TEXT2).grid(row=4, column=0, sticky="w",
                                                                                padx=18, pady=6)
         self.level = ctk.CTkSegmentedButton(opt, values=list(LEVEL_LABELS.values()), command=self._on_level,
                                             font=font(13), **SEG)
@@ -266,8 +266,6 @@ class HomePage(ctk.CTkFrame):
         self.level_lbl = ctk.CTkLabel(opt, text="", font=font(12), text_color=MUTED, anchor="w", justify="left")
         self.level_lbl.grid(row=5, column=0, columnspan=2, sticky="w", padx=18, pady=(0, 4))
         auto_wrap(self.level_lbl, opt, 40)
-        self.auto = ctk.CTkSwitch(opt, text="Дасгалыг автоматаар таних", font=font(14), command=self._on_switches)
-        self.auto.grid(row=6, column=0, columnspan=2, sticky="w", padx=18, pady=6)
         self.sound = ctk.CTkSwitch(opt, text="Дуут дохио", font=font(14), command=self._on_switches)
         self.sound.grid(row=7, column=0, columnspan=2, sticky="w", padx=18, pady=(6, 18))
 
@@ -300,7 +298,6 @@ class HomePage(ctk.CTkFrame):
         self.model.set(MODELS.get(s["model"], MODELS["lite"]))
         self.sound.select() if s["sound"] else self.sound.deselect()
         self.mirror.select() if s["mirror"] else self.mirror.deselect()
-        self.auto.select() if s["auto_detect"] else self.auto.deselect()
         self.level.set(LEVEL_LABELS[s["level"]])
         self._refresh_labels()
 
@@ -408,7 +405,6 @@ class HomePage(ctk.CTkFrame):
     def _on_switches(self):
         self.app.settings["sound"] = bool(self.sound.get())
         self.app.settings["mirror"] = bool(self.mirror.get())
-        self.app.settings["auto_detect"] = bool(self.auto.get())
 
     def _on_level(self, label):
         self.app.settings["level"] = next(k for k, v in LEVEL_LABELS.items() if v == label)
@@ -511,7 +507,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.err_actions = ctk.CTkFrame(self.video_box, fg_color="transparent")
         ctk.CTkButton(self.err_actions, text="Демо горимоор туршиж үзэх", height=40, font=font(15), **PRIMARY,
                       command=lambda: self.app.start_workout(source="demo")).pack(side="left", padx=5)
-        ctk.CTkButton(self.err_actions, text="Нүүр хуудас", height=40, font=font(15), **dict(SECONDARY, fg_color=CARD),
+        ctk.CTkButton(self.err_actions, text="Эхлэл", height=40, font=font(15), **dict(SECONDARY, fg_color=CARD),
                       command=self.app.stop_workout).pack(side="left", padx=5)
         self.video_box.bind("<Configure>", self._on_resize)
 
@@ -519,7 +515,7 @@ class WorkoutPage(ctk.CTkFrame):
         side = ctk.CTkFrame(self, fg_color="transparent", width=360)
         side.grid(row=0, column=1, sticky="ns")
         side.grid_columnconfigure((0, 1), weight=1)
-        self.ex_switch = ctk.CTkSegmentedButton(side, values=["Squat", "Push-up"], command=self._on_exercise,
+        self.ex_switch = ctk.CTkSegmentedButton(side, values=["Суулт", "Түлхэлт"], command=self._on_exercise,
                                                 font=font(14), **SEG)
         self.ex_switch.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
 
@@ -590,7 +586,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.mirror_btn.grid(row=5, column=1, sticky="ew", padx=(5, 0), pady=5)
         self.finish_btn = ctk.CTkButton(side, text="Дуусгаж дүн харах (E)", command=self.finish, **PRIMARY, **b)
         self.finish_btn.grid(row=6, column=0, columnspan=2, sticky="ew", pady=5)
-        self.back_btn = ctk.CTkButton(side, text="← Нүүр (Esc)", command=self.request_leave, **b, **sec)
+        self.back_btn = ctk.CTkButton(side, text="← Эхлэл (Esc)", command=self.request_leave, **b, **sec)
         self.back_btn.grid(row=7, column=0, sticky="ew", padx=(0, 5), pady=5)
         self.full_btn = ctk.CTkButton(side, text="Бүтэн дэлгэц (F)", command=self.app.toggle_fullscreen,
                                       **b, **sec)
@@ -602,7 +598,7 @@ class WorkoutPage(ctk.CTkFrame):
         # Давталт хийсний дараа Esc дарахад дүнг харахгүй гарахаас сэргийлнэ
         self.confirm = ConfirmCard(self, "Дасгалаа дуусгах уу?", "", [
             ("Үргэлжлүүлэх (Esc)", self.confirm_continue, "secondary"),
-            ("Нүүр хуудас руу", self.confirm_home, "secondary"),
+            ("Эхлэл рүү", self.confirm_home, "secondary"),
             ("Дүнгээ харах (Enter)", self.confirm_summary, "primary"),
         ])
         self._was_paused = False
@@ -632,7 +628,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.worker = EngineWorker(self.engine)
         self._seq, self._cache, self._done_at, self._last_ef = 0, {}, None, None
         self._pending_ex = None
-        self.ex_switch.set("Squat" if s["exercise"] == "squat" else "Push-up")
+        self.ex_switch.set("Суулт" if s["exercise"] == "squat" else "Түлхэлт")
         self.pause_btn.configure(text="Түр зогсоох (P)")
         self._update_sound_btn()
         self._reset_panel(s, kind)
@@ -752,11 +748,11 @@ class WorkoutPage(ctk.CTkFrame):
             self.engine.toggle_mirror()
 
     def set_exercise(self, name):
-        self.ex_switch.set("Squat" if name == "squat" else "Push-up")
+        self.ex_switch.set("Суулт" if name == "squat" else "Түлхэлт")
         self._on_exercise(self.ex_switch.get())
 
     def _on_exercise(self, label):
-        name = "squat" if label == "Squat" else "pushup"
+        name = "squat" if label == "Суулт" else "pushup"
         self.app.settings["exercise"] = name
         if self.engine:
             self._pending_ex = name  # хөдөлгүүр дараагийн кадрт солино
@@ -768,7 +764,7 @@ class WorkoutPage(ctk.CTkFrame):
             if ex != self._pending_ex:
                 return
             self._pending_ex = None
-        want = "Squat" if ex == "squat" else "Push-up"
+        want = "Суулт" if ex == "squat" else "Түлхэлт"
         if self.ex_switch.get() != want:
             self.ex_switch.set(want)
             self.app.settings["exercise"] = ex
@@ -798,7 +794,7 @@ class WorkoutPage(ctk.CTkFrame):
         if w.error:
             self.checklist.hide()
             self._show_overlay(w.error if self.engine.kind == "camera"
-                               else w.error + "\n\n«Нүүр хуудас» товчоор буцна уу.")
+                               else w.error + "\n\n«Эхлэл» товчоор буцна уу.")
             if self.engine.kind == "camera":
                 self.err_actions.place(relx=0.5, rely=0.5, y=90, anchor="n")
                 self.err_actions.lift()
@@ -979,8 +975,8 @@ class SummaryPage(ctk.CTkScrollableFrame):
         ctk.CTkButton(bar, text="Дахин хийх", height=44, width=160, font=font(15, "bold"), **PRIMARY,
                       command=self.app.start_workout).pack(side="left")
         sec = SECONDARY
-        ctk.CTkButton(bar, text="Нүүр хуудас", height=44, width=150, font=font(15),
-                      command=lambda: self.app.show("home"), **sec).pack(side="left", padx=10)
+        ctk.CTkButton(bar, text="Эхлэл", height=44, width=150, font=font(15),
+                      command=lambda: self.app.show("start"), **sec).pack(side="left", padx=10)
         ctk.CTkButton(bar, text="Түүх харах", height=44, width=150, font=font(15),
                       command=lambda: self.app.show("history"), **sec).pack(side="left")
 
@@ -1174,15 +1170,15 @@ class HistoryPage(ctk.CTkScrollableFrame):
 HELP = [
     ("Камерыг хэрхэн байрлуулах вэ", [
         "Камераас 2–3 метр зайд зогсож, толгойноос хөл хүртэл бүтэн харагдах ёстой.",
-        "Squat: хажуугаараа зогсвол хамгийн нарийн (гүн, их бие, өсгий). Урдаас зогсвол өвдөг дотогш орохыг шалгана.",
-        "Push-up: заавал хажуугаас. Камерыг шалнаас 30–60 см өндөрт тавина.",
+        "Суулт: хажуугаараа зогсвол хамгийн нарийн (гүн, их бие, өсгий). Урдаас зогсвол өвдөг дотогш орохыг шалгана.",
+        "Шалнаас түлхэлт: заавал хажуугаас. Камерыг шалнаас 30–60 см өндөрт тавина.",
         "Гэрэлтүүлэг сайн, ар тал энгийн байвал илүү тогтвортой ажиллана.",
     ]),
     ("Дасгал хэрхэн явагддаг вэ", [
         "1. Бэлтгэл: видеоны зүүн дээд буланд шалгах жагсаалт гарна (камер таныг харж байна, бүтэн бие кадрт "
         "багтсан, эхлэх байрлал). Дутуу байгаа алхам шар «›» тэмдэгтэй, биеийн аль хэсэг харагдахгүй байгааг "
         "доод мөрөнд бичнэ.",
-        "2. Эхлэх байрлалдаа (squat: шулуун зогсох, push-up: гараа тэнийлгэх) 1 секунд хөдөлгөөнгүй зогсоход "
+        "2. Эхлэх байрлалдаа (суулт: шулуун зогсох, түлхэлт: гараа тэнийлгэх) 1 секунд хөдөлгөөнгүй зогсоход "
         "хүрээ ногоон болно.",
         "3. 3-2-1 гэж тоолоод дасгал эхэлнэ. Зорилтот гүнд хүрэхэд богино «бип» дуу гарна. Давталт бүрийн дараа "
         "дуут дохио гарна: өсөх ая = зөв, буух ая = алдаатай.",
@@ -1198,26 +1194,25 @@ HELP = [
     ]),
     ("Товчлуурууд (дасгалын үед)", [
         "Space: тоолол эсвэл амралтыг алгасах   ·   P: түр зогсоох / үргэлжлүүлэх",
-        "S: дуу асаах / унтраах   ·   M: толин дүрс   ·   1 / 2: squat / push-up",
+        "S: дуу асаах / унтраах   ·   M: толин дүрс   ·   1 / 2: суулт / түлхэлт",
         "E: дасгалыг дуусгаж дүн харах   ·   Esc: гарах (давталт хийсэн бол дүнгээ харах эсэхийг асууна)",
         "F эсвэл F11: бүтэн дэлгэц (холоос харахад тохиромжтой; F эсвэл Esc дарж гарна)",
-        "Нүүр хуудсанд Enter дарвал дасгал эхэлнэ.",
+        "Эхлэх урсгалд Enter дарвал дараагийн алхам руу шилжинэ, Esc буцна.",
     ]),
     ("Юуг шалгадаг вэ", [
-        "Squat: гүн (өвдөг ≤ 100°), их бие хэт урагш хазайх (> 50°), өвдөг дотогш орох (урдаас), "
+        "Суулт: гүн (өвдөг ≤ 100°), их бие хэт урагш хазайх (> 50°), өвдөг дотогш орох (урдаас), "
         "өсгий газраас салах (хажуугаас), давталтын хооронд бүрэн босоогүй. Сануулга: хөлийн байрлал (урдаас), "
         "хэт хурдан давталт.",
-        "Push-up: гүн (тохой ≤ 90°), бэлхүүс унжих / бөгс өргөх (мөр-хонго-шагай < 160°), гараа бүрэн тэнийлгээгүй.",
-        "Шалгуурын түвшин (нүүр хуудас): Зөөлөн = өвдөг 110°, тохой 100°; Энгийн = 100°, 90°; Хатуу = 90°, 80°, "
-        "их бие 45°-аас бага хазайх, илүү удаан хэмнэл. Бусад босгыг form_checker/config.py файлд өөрчилж болно.",
-        "«Дасгалыг автоматаар таних» асаалттай бол хэвтээ (суниалтын) байрлалд орход push-up, босоход squat "
-        "руу өөрөө шилжинэ. Сетийн дундуур (давталт хийж байхад) солигдохгүй.",
+        "Шалнаас түлхэлт: гүн (тохой ≤ 90°), бэлхүүс унжих / бөгс өргөх (мөр-хонго-шагай < 160°), гараа бүрэн тэнийлгээгүй.",
+        "Бэлтгэлийн түвшин: Анхан шат (уян шалгуур) = өвдөг 110°, тохой 100°; Дунд шат (стандарт) = 100°, 90°; "
+        "Ахисан шат (нарийн) = 90°, 80°, нуруу 45°-аас бага хазайх, тайван хэмнэл. Бусад босгыг "
+        "form_checker/config.py файлд өөрчилж болно.",
     ]),
     ("Асуудал гарвал", [
-        "Камер нээгдэхгүй: нүүр хуудасны «Камер хайх» товчоор ажиллаж буй камерыг олно. " + camera_help(),
+        "Камер нээгдэхгүй: «Тохиргоо» хуудасны «Камер хайх» товчоор ажиллаж буй камерыг олно. " + camera_help(),
         "Тоолол эхлэхгүй: бие бүтэн харагдаж, эхлэх байрлалдаа 1 секунд зогсох хэрэгтэй. Шууд эхлэх бол Space.",
         "Удаан ажиллаж байна: «Хурдан (lite)» загварыг сонгоно.",
-        "Камергүй үзэх бол нүүр хуудаснаас «Демо (камергүй)»-г сонгоно.",
+        "Камергүй үзэх бол «Тохиргоо» хуудаснаас «Демо (камергүй)»-г сонгоно.",
         "Цонх, бичиг хэт жижиг эсвэл том: зүүн цэсний доод талын «Хэмжээ»-г өөрчилнө (жишээ нь Linux-ийн өндөр "
         "нягтралтай дэлгэцэд 150–200%, жижиг дэлгэцтэй зөөврийн компьютерт 90%).",
     ]),

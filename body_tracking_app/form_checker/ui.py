@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 
 from .messages import EXERCISE_NAMES, STATE_NAMES, t
+from .paths import RES_DIR
 from .pose import SKELETON
 
 FONT_CANDIDATES = [
@@ -34,7 +35,7 @@ FONT_CANDIDATES = [
     "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
 ]
-FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
+FONT_DIR = os.path.join(RES_DIR, "fonts")
 
 # BGR өнгө
 GREEN, RED, ORANGE, WHITE, GRAY = (80, 200, 80), (60, 60, 230), (0, 165, 255), (255, 255, 255), (170, 170, 170)

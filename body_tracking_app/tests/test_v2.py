@@ -261,7 +261,7 @@ class CsvAndSettingsTest(unittest.TestCase):
             with open(path, "w", encoding="utf-8") as f:
                 json.dump({"level": "hard", "auto_detect": "yes"}, f)
             s = load_settings(path)
-            self.assertEqual((s["level"], s["auto_detect"]), ("normal", True))
+            self.assertEqual((s["level"], s["auto_detect"]), ("normal", False))   # 2.3: анхдагч унтраалттай
             with open(path, "w", encoding="utf-8") as f:
                 json.dump({"level": "strict", "auto_detect": False}, f)
             s = load_settings(path)

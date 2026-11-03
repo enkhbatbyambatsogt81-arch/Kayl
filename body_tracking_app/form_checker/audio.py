@@ -17,6 +17,8 @@ import wave
 
 import numpy as np
 
+from .paths import RES_DIR
+
 SAMPLE_RATE = 22050
 
 # Үйл явдал бүрийн аялгуу: [(давтамж Гц, үргэлжлэх секунд), ...]. 0 Гц = чимээгүй завсар.
@@ -30,7 +32,7 @@ TONES = {
     "done":     [(523, 0.12), (659, 0.12), (784, 0.12), (1047, 0.40)],
 }
 
-SOUND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds")
+SOUND_DIR = os.path.join(RES_DIR, "sounds")
 
 
 def synth(notes, volume=0.35):
