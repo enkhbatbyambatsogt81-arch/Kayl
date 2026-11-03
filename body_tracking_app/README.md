@@ -44,7 +44,8 @@
 `~/.local/share/UkhaalagDasgaljuulagch`).
 
 Шинэ хувилбарын файлуудыг GitHub Actions өөрөө угсардаг: `v` үсгээр эхэлсэн tag push хийхэд
-(`git tag v2.3 && git push origin v2.3`) [`.github/workflows/release.yml`](../.github/workflows/release.yml)
+(`git tag v2.4 && git push origin v2.4`) эсвэл GitHub-ийн **Actions → Release → Run workflow** дээр tag-аа
+(жишээ нь `v2.4`) бичээд ажиллуулахад [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 Windows, macOS, Linux дээр угсарч, шалгаад Releases-д байршуулна. Өөрийн компьютер дээр угсрах бол:
 `python -m pip install -r requirements.txt pyinstaller` → `python -m PyInstaller packaging/ukhaalag.spec --noconfirm`
 (үр дүн `dist/` хавтсанд, тухайн системдээ л ажиллана).
