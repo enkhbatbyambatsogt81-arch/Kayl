@@ -326,7 +326,7 @@ class RepChart(ThemedCanvas):
                                            "dash")])
 
 
-SHORT_NAMES = {"squat": "Суулт", "pushup": "Түлхэлт"}
+SHORT_NAMES = {"squat": "Суулт", "pushup": "Суниалт"}
 
 
 class HistoryChart(ThemedCanvas):

@@ -20,10 +20,11 @@ from ..messages import TIPS, WARNING_TITLES, t
 from .theme import (ACCENT, BAD, BORDER, CARD, FIGURE, GOOD, GOOD_SOFT, GOOD_TEXT, INFO, INSET, LEVEL_COLORS, MUTED,
                     ON_ACCENT, PHASES, PRIMARY, SECONDARY, SEG, TEXT, TEXT2, VIDEO_BG, WARN, WARN_TEXT, font, pick)
 from .overlays import ConfirmCard, SetupChecklist
+from .theme_toggle import ThemeToggle
 from .widgets import AngleTrace, Card, HistoryChart, RepChart, RepDots, StatTile, stick_figure
 from .worker import EngineWorker
 
-EX_TITLES = {"squat": "Суулт (Squat)", "pushup": "Шалнаас түлхэлт (Push-up)"}
+EX_TITLES = {"squat": "Суулт (Squat)", "pushup": "Гар дээр суниалт (Push-up)"}
 EX_INFO = {
     "squat": ("Шалгах зүйлс: суултын гүн, нурууны байрлал, өвдөг дотогш орох, өсгий өргөгдөх",
               "Камер: хажуугаас (эсвэл урдаас), 2–3 м зайд, бүтэн бие харагдахаар"),
@@ -43,7 +44,7 @@ KEY_HINT = "Enter = эхлэх.  Дасгалын үед: Space алгасах �
 CAMERA_NOTE = "0 нь ихэвчлэн компьютерийн өөрийн камер. Олон камертай бол «Камер хайх» дарж ажиллаж буйг нь олно."
 DEMO_NOTE = ("Камергүйгээр зохиомол хүн зөв ба алдаатай давталт хийнэ. Апп яг камертай үеийнх шиг тоолж, "
              "үнэлнэ. Хичээл дээр үзүүлэх эсвэл камер ажиллахгүй үед туршихад тохиромжтой.")
-HISTORY_FILTERS = {"Бүгд": None, "Суулт": "squat", "Түлхэлт": "pushup"}
+HISTORY_FILTERS = {"Бүгд": None, "Суулт": "squat", "Суниалт": "pushup"}
 MODELS = {"lite": "Хурдан (lite)", "full": "Нарийн (full)"}
 # Бэлэн зорилго: (нэг сетийн давталт, сет, амралт секунд). Анх удаа ашиглагч гурван гулсуурыг тааруулахгүйгээр
 # нэг товчоор сонгоно. Гулсуураар өөр утга сонговол «Өөрөө» гэж харагдана.
@@ -189,6 +190,7 @@ class HomePage(ctk.CTkFrame):
         body.grid_columnconfigure((0, 1), weight=1, uniform="col")
         header(body, "Дасгалын тохиргоо", "Дасгал, зорилго, эх үүсвэрээ нарийвчлан тохируулаад «Эхлэх» дарна.").grid(
             row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 10))
+        ThemeToggle(body, app).grid(row=0, column=0, columnspan=2, sticky="ne", padx=4, pady=(0, 0))
 
         # --- 1. Дасгал
         step_title(body, 1, "Дасгал").grid(row=1, column=0, columnspan=2, sticky="w", padx=10, pady=(4, 0))
@@ -515,9 +517,12 @@ class WorkoutPage(ctk.CTkFrame):
         side = ctk.CTkFrame(self, fg_color="transparent", width=360)
         side.grid(row=0, column=1, sticky="ns")
         side.grid_columnconfigure((0, 1), weight=1)
-        self.ex_switch = ctk.CTkSegmentedButton(side, values=["Суулт", "Түлхэлт"], command=self._on_exercise,
+        top_row = ctk.CTkFrame(side, fg_color="transparent")
+        top_row.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        self.ex_switch = ctk.CTkSegmentedButton(top_row, values=["Суулт", "Суниалт"], command=self._on_exercise,
                                                 font=font(14), **SEG)
-        self.ex_switch.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        ThemeToggle(top_row, app).pack(side="right")
+        self.ex_switch.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
         self.rep_card = rep_card = Card(side)
         rep_card.grid(row=1, column=0, columnspan=2, sticky="ew")
@@ -628,7 +633,7 @@ class WorkoutPage(ctk.CTkFrame):
         self.worker = EngineWorker(self.engine)
         self._seq, self._cache, self._done_at, self._last_ef = 0, {}, None, None
         self._pending_ex = None
-        self.ex_switch.set("Суулт" if s["exercise"] == "squat" else "Түлхэлт")
+        self.ex_switch.set("Суулт" if s["exercise"] == "squat" else "Суниалт")
         self.pause_btn.configure(text="Түр зогсоох (P)")
         self._update_sound_btn()
         self._reset_panel(s, kind)
@@ -748,7 +753,7 @@ class WorkoutPage(ctk.CTkFrame):
             self.engine.toggle_mirror()
 
     def set_exercise(self, name):
-        self.ex_switch.set("Суулт" if name == "squat" else "Түлхэлт")
+        self.ex_switch.set("Суулт" if name == "squat" else "Суниалт")
         self._on_exercise(self.ex_switch.get())
 
     def _on_exercise(self, label):
@@ -764,7 +769,7 @@ class WorkoutPage(ctk.CTkFrame):
             if ex != self._pending_ex:
                 return
             self._pending_ex = None
-        want = "Суулт" if ex == "squat" else "Түлхэлт"
+        want = "Суулт" if ex == "squat" else "Суниалт"
         if self.ex_switch.get() != want:
             self.ex_switch.set(want)
             self.app.settings["exercise"] = ex
@@ -961,6 +966,7 @@ class SummaryPage(ctk.CTkScrollableFrame):
         header(self, "Дасгал дууслаа!",
                f"Нийт хугацаа {mins}:{secs:02d}" + ("  ·  Дүн logs/ хавтсанд хадгалагдсан" if csv_path else "")
                ).grid(row=row, column=0, sticky="w", padx=8, pady=(8, 12))
+        ThemeToggle(self, self.app).grid(row=row, column=0, sticky="ne", padx=4)
         row += 1
         if not workouts:
             ctk.CTkLabel(self, text="Тоологдсон давталт алга. Камерын өмнө бүтэн харагдаж, эхлэх байрлалдаа "
@@ -1087,6 +1093,7 @@ class HistoryPage(ctk.CTkScrollableFrame):
         self.filter.grid(row=0, column=1, padx=(0, 12))
         ctk.CTkButton(top, text="Хавтас нээх", width=120, command=self._open_folder, **sec).grid(row=0, column=2)
         ctk.CTkButton(top, text="Шинэчлэх", width=110, command=self.refresh, **sec).grid(row=0, column=3, padx=(8, 0))
+        ThemeToggle(top, app).grid(row=0, column=4, sticky="e", padx=(8, 0))
 
         self.tiles = ctk.CTkFrame(self, fg_color="transparent")
         self.tiles.grid(row=1, column=0, sticky="ew")
@@ -1171,14 +1178,14 @@ HELP = [
     ("Камерыг хэрхэн байрлуулах вэ", [
         "Камераас 2–3 метр зайд зогсож, толгойноос хөл хүртэл бүтэн харагдах ёстой.",
         "Суулт: хажуугаараа зогсвол хамгийн нарийн (гүн, их бие, өсгий). Урдаас зогсвол өвдөг дотогш орохыг шалгана.",
-        "Шалнаас түлхэлт: заавал хажуугаас. Камерыг шалнаас 30–60 см өндөрт тавина.",
+        "Гар дээр суниалт: заавал хажуугаас. Камерыг шалнаас 30–60 см өндөрт тавина.",
         "Гэрэлтүүлэг сайн, ар тал энгийн байвал илүү тогтвортой ажиллана.",
     ]),
     ("Дасгал хэрхэн явагддаг вэ", [
         "1. Бэлтгэл: видеоны зүүн дээд буланд шалгах жагсаалт гарна (камер таныг харж байна, бүтэн бие кадрт "
         "багтсан, эхлэх байрлал). Дутуу байгаа алхам шар «›» тэмдэгтэй, биеийн аль хэсэг харагдахгүй байгааг "
         "доод мөрөнд бичнэ.",
-        "2. Эхлэх байрлалдаа (суулт: шулуун зогсох, түлхэлт: гараа тэнийлгэх) 1 секунд хөдөлгөөнгүй зогсоход "
+        "2. Эхлэх байрлалдаа (суулт: шулуун зогсох, суниалт: гараа тэнийлгэх) 1 секунд хөдөлгөөнгүй зогсоход "
         "хүрээ ногоон болно.",
         "3. 3-2-1 гэж тоолоод дасгал эхэлнэ. Зорилтот гүнд хүрэхэд богино «бип» дуу гарна. Давталт бүрийн дараа "
         "дуут дохио гарна: өсөх ая = зөв, буух ая = алдаатай.",
@@ -1194,7 +1201,7 @@ HELP = [
     ]),
     ("Товчлуурууд (дасгалын үед)", [
         "Space: тоолол эсвэл амралтыг алгасах   ·   P: түр зогсоох / үргэлжлүүлэх",
-        "S: дуу асаах / унтраах   ·   M: толин дүрс   ·   1 / 2: суулт / түлхэлт",
+        "S: дуу асаах / унтраах   ·   M: толин дүрс   ·   1 / 2: суулт / суниалт",
         "E: дасгалыг дуусгаж дүн харах   ·   Esc: гарах (давталт хийсэн бол дүнгээ харах эсэхийг асууна)",
         "F эсвэл F11: бүтэн дэлгэц (холоос харахад тохиромжтой; F эсвэл Esc дарж гарна)",
         "Эхлэх урсгалд Enter дарвал дараагийн алхам руу шилжинэ, Esc буцна.",
@@ -1203,7 +1210,7 @@ HELP = [
         "Суулт: гүн (өвдөг ≤ 100°), их бие хэт урагш хазайх (> 50°), өвдөг дотогш орох (урдаас), "
         "өсгий газраас салах (хажуугаас), давталтын хооронд бүрэн босоогүй. Сануулга: хөлийн байрлал (урдаас), "
         "хэт хурдан давталт.",
-        "Шалнаас түлхэлт: гүн (тохой ≤ 90°), бэлхүүс унжих / бөгс өргөх (мөр-хонго-шагай < 160°), гараа бүрэн тэнийлгээгүй.",
+        "Гар дээр суниалт: гүн (тохой ≤ 90°), бэлхүүс унжих / бөгс өргөх (мөр-хонго-шагай < 160°), гараа бүрэн тэнийлгээгүй.",
         "Бэлтгэлийн түвшин: Анхан шат (уян шалгуур) = өвдөг 110°, тохой 100°; Дунд шат (стандарт) = 100°, 90°; "
         "Ахисан шат (нарийн) = 90°, 80°, нуруу 45°-аас бага хазайх, тайван хэмнэл. Бусад босгыг "
         "form_checker/config.py файлд өөрчилж болно.",
@@ -1229,6 +1236,7 @@ class HelpPage(ctk.CTkScrollableFrame):
         header(top, "Заавар", "Аппыг хэрхэн ашиглах вэ").grid(row=0, column=0, sticky="w")
         ctk.CTkButton(top, text="Танилцуулгыг дахин үзэх", width=200, command=app.show_onboarding,
                       **SECONDARY).grid(row=0, column=1, sticky="e")
+        ThemeToggle(top, app).grid(row=0, column=2, sticky="e", padx=(8, 0))
         for i, (title, lines) in enumerate(HELP, 1):
             card = Card(self)
             card.grid(row=i, column=0, sticky="ew", padx=8, pady=6)

@@ -17,12 +17,11 @@ from . import ctk_fixes
 from .overlays import Onboarding
 from .pages import EX_TITLES, HelpPage, HistoryPage, HomePage, SummaryPage, WorkoutPage
 from .start import APP_NAME, StartFlow
-from .theme import (ACCENT, ACCENT_SOFT, BG, BORDER, INSET, MUTED, SEG, SIDEBAR, TEXT, TEXT2, apply_ctk_theme, font,
+from .theme import (ACCENT, ACCENT_SOFT, BG, BORDER, INSET, MUTED, SIDEBAR, TEXT, TEXT2, apply_ctk_theme, font,
                     pick)
 from .widgets import stick_figure
 
 NAV = [("start", "Эхлэх"), ("home", "Тохиргоо"), ("history", "Түүх"), ("help", "Заавар")]
-APPEARANCE = {"light": "Цайвар", "dark": "Харанхуй", "system": "Систем"}
 # Цонхны элементүүдийн хэмжээ. Linux-д дэлгэцийн томруулалтыг (HiDPI) CustomTkinter өөрөө мэддэггүй,
 # жижиг дэлгэцтэй зөөврийн компьютерт эсрэгээрээ багасгах хэрэгтэй болдог.
 SCALES = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
@@ -73,7 +72,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(self.sidebar, text="Ухаалаг\nдасгалжуулагч", font=font(20, "bold"), text_color=TEXT, anchor="w",
                      justify="left").grid(
             row=0, column=0, sticky="ew", padx=20, pady=(24, 0))
-        ctk.CTkLabel(self.sidebar, text=f"Суулт · Түлхэлт · v{__version__}", font=font(13), text_color=MUTED,
+        ctk.CTkLabel(self.sidebar, text=f"Суулт · Суниалт · v{__version__}", font=font(13), text_color=MUTED,
                      anchor="w").grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
         self.nav = {}
         self._nav_fonts = {False: font(15), True: font(15, "bold")}
@@ -95,12 +94,8 @@ class App(ctk.CTk):
         self.progress_lbl.grid(row=1, column=0, sticky="ew", padx=8)
         for w in (self.progress, *self.progress.winfo_children()):
             w.bind("<Button-1>", lambda e: self.show("history"))
-        ctk.CTkLabel(self.sidebar, text="Өнгөний горим", font=font(12), text_color=MUTED, anchor="w").grid(
-            row=11, column=0, sticky="ew", padx=20)
-        self.appearance = ctk.CTkSegmentedButton(self.sidebar, values=list(APPEARANCE.values()),
-                                                 command=self._on_appearance, font=font(12), **SEG)
-        self.appearance.set(APPEARANCE[self.settings["appearance"]])
-        self.appearance.grid(row=12, column=0, sticky="ew", padx=14, pady=(4, 12))
+        # 2.4: цайвар / харанхуй горимыг хуудас бүрийн баруун дээд буланд байх товчоор солино (theme_toggle.py)
+        self.theme_toggles = []
         size_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         size_row.grid(row=13, column=0, sticky="ew", padx=(20, 14), pady=(0, 20))
         ctk.CTkLabel(size_row, text="Хэмжээ", font=font(12), text_color=MUTED).pack(side="left")
@@ -293,12 +288,15 @@ class App(ctk.CTk):
         elif self.current == "home" and k == "return":
             self.start_workout()
 
-    def _on_appearance(self, label):
-        mode = next(k for k, v in APPEARANCE.items() if v == label)
+    def set_dark(self, dark):
+        """Горим солих товч дарахад: цайвар <-> харанхуй. Сонголт settings.json-д хадгалагдана."""
+        mode = "dark" if dark else "light"
         self.settings["appearance"] = mode
         ctk.set_appearance_mode(mode)
         save_settings(self.settings)
         self.divider.configure(bg=pick(BORDER))
+        for t in list(self.theme_toggles):
+            t.sync(animate=True)
         # tk.Canvas дээрх графикууд өнгөө өөрөө солихгүй тул дахин зурна
         self.after(50, lambda: [p.refresh_theme() for p in self.pages.values() if hasattr(p, "refresh_theme")])
 

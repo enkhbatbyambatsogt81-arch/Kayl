@@ -9,6 +9,7 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from .theme import ACCENT, BORDER, FIGURE, GOOD_SOFT, GOOD_TEXT, INSET, MUTED, PRIMARY, TEXT, TEXT2, font
+from .theme_toggle import ThemeToggle
 from .widgets import Card, stick_figure
 
 APP_NAME = "Ухаалаг дасгалжуулагч"
@@ -24,7 +25,7 @@ LEVELS = {
 }
 EXERCISES = {
     "squat": ("Суулт", "Squat · гүн, нурууны байрлал, өвдөг"),
-    "pushup": ("Шалнаас түлхэлт", "Push-up · тохойн өнцөг, биеийн шулуун байдал"),
+    "pushup": ("Гар дээр суниалт", "Push-up · тохойн өнцөг, биеийн шулуун байдал"),
 }
 STEPS = ("welcome", "level", "exercise")
 
@@ -91,10 +92,13 @@ class StartFlow(ctk.CTkFrame):
         self.step_lbl = ctk.CTkLabel(prog, text="", font=font(13), text_color=TEXT2)
         self.step_lbl.pack(pady=(4, 0))
         self.prog = prog
-        self.more_btn = ctk.CTkButton(top, text="Нарийвчилсан тохиргоо", width=190, height=40, font=font(14),
+        right = ctk.CTkFrame(top, fg_color="transparent")
+        right.grid(row=0, column=2, sticky="e")
+        ThemeToggle(right, app).pack(side="right")
+        self.more_btn = ctk.CTkButton(right, text="Нарийвчилсан тохиргоо", width=190, height=40, font=font(14),
                                       fg_color="transparent", text_color=TEXT2, hover_color=INSET,
                                       command=lambda: app.show("home"))
-        self.more_btn.grid(row=0, column=2, sticky="e")
+        self.more_btn.pack(side="right", padx=(0, 4))
 
         self.frames = {"welcome": self._build_welcome(), "level": self._build_level(),
                        "exercise": self._build_exercise()}

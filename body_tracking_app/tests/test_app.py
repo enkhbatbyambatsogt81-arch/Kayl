@@ -326,7 +326,7 @@ class GuiSmokeTest(unittest.TestCase):
             app.show("history")
             pump(0.3)
             hist = app.pages["history"]
-            hist.filter.set("Түлхэлт")
+            hist.filter.set("Суниалт")
             hist.refresh()
             self.assertIn("алга", hist.empty.cget("text"))           # push-up хийгээгүй
             hist.filter.set("Суулт")
@@ -334,6 +334,20 @@ class GuiSmokeTest(unittest.TestCase):
             self.assertEqual(hist.t_sessions.value.cget("text"), "1")
             app.show("help")
             pump(0.3)
+            # 2.4: хуудас бүрийн буланд горим солих товч (start, home, workout, summary, history, help)
+            toggles = [t for t in app.theme_toggles if t.winfo_exists()]
+            self.assertGreaterEqual(len(toggles), 6)
+            help_toggle = next(t for t in toggles if str(t).startswith(str(app.pages["help"])))
+            help_toggle.toggle()
+            pump(0.4)
+            self.assertEqual((app.settings["appearance"], saved.get("appearance")), ("dark", "dark"))
+            self.assertTrue(all(t.pos == 1.0 for t in toggles))      # бүх товч харанхуй тал руу шилжсэн
+            app.show("start")
+            pump(0.2)
+            toggles[0].toggle()
+            pump(0.4)
+            self.assertEqual(app.settings["appearance"], "light")
+            self.assertTrue(all(t.pos == 0.0 for t in app.theme_toggles))
         finally:
             app.on_close()
 
