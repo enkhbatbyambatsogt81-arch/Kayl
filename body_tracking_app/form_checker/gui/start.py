@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw
 
 from .theme import ACCENT, BORDER, FIGURE, INSET, MUTED, PRIMARY, SECONDARY, SELECT, TEXT, TEXT2, font
 from .theme_toggle import ThemeToggle
+from .transitions import STEP_SHIFT, Transition, place_fill
 from .widgets import Card, stick_figure
 
 APP_NAME = "Ухаалаг дасгалжуулагч"
@@ -119,6 +120,10 @@ class StartFlow(ctk.CTkFrame):
                                       command=lambda: app.show("home"), **SECONDARY)
         self.more_btn.pack(side="right", padx=(0, 10))
 
+        # 3.1: алхмууд нэг талбайд давхарлан байрлаж, урагшлахад баруунаас, буцахад зүүнээс гулсаж орно
+        self.body = ctk.CTkFrame(self, fg_color="transparent")
+        self.body.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
+        self._slide = None
         self.frames = {"welcome": self._build_welcome(), "level": self._build_level(),
                        "exercise": self._build_exercise()}
 
@@ -136,7 +141,7 @@ class StartFlow(ctk.CTkFrame):
 
     # ---- алхам бүрийн агуулга
     def _build_welcome(self):
-        f = ctk.CTkFrame(self, fg_color="transparent")
+        f = ctk.CTkFrame(self.body, fg_color="transparent")
         f.grid_columnconfigure((0, 1), weight=1, uniform="half")
         f.grid_rowconfigure(0, weight=1)
         text = ctk.CTkFrame(f, fg_color="transparent")
@@ -160,7 +165,7 @@ class StartFlow(ctk.CTkFrame):
         ctk.CTkLabel(master, text=sub, font=font(16), text_color=TEXT2).pack(pady=(0, 24))
 
     def _build_level(self):
-        f = ctk.CTkFrame(self, fg_color="transparent")
+        f = ctk.CTkFrame(self.body, fg_color="transparent")
         self._title(f, "Бэлтгэлийн түвшингээ сонгоно уу",
                     "Түвшин нь давталт, сетийн тоо болон техникийн шалгуурын нарийвчлалыг тодорхойлно.")
         row = ctk.CTkFrame(f, fg_color="transparent")
@@ -199,7 +204,7 @@ class StartFlow(ctk.CTkFrame):
         return f
 
     def _build_exercise(self):
-        f = ctk.CTkFrame(self, fg_color="transparent")
+        f = ctk.CTkFrame(self.body, fg_color="transparent")
         self._title(f, "Дасгалаа сонгоно уу", "Дасгалын явцад ч өөрчлөх боломжтой.")
         row = ctk.CTkFrame(f, fg_color="transparent")
         row.pack(fill="x", padx=60)
@@ -246,14 +251,35 @@ class StartFlow(ctk.CTkFrame):
         self.refresh()
         self.render()
 
-    def render(self):
-        for name, frame in self.frames.items():
-            if name == self.step:
-                frame.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
-            else:
-                frame.grid_remove()
-        index = STEPS.index(self.step)
-        welcome = self.step == "welcome"
+    def finish_transition(self):
+        if self._slide is not None:
+            self._slide.finish()
+            self._slide = None
+
+    def render(self, direction=0):
+        """direction: 1 урагшлах, -1 буцах, 0 хөдөлгөөнгүй (урсгал шинээр нээгдэх үед)."""
+        self.finish_transition()
+        step = self.step
+        frame = self.frames[step]
+        shown = [f for name, f in self.frames.items() if name != step and f.winfo_manager()]
+
+        def reveal():
+            frame.lift()
+            for f in shown:
+                f.place_forget()
+            self._render_chrome(step)
+
+        place_fill(frame)
+        if not direction or not shown or not self.winfo_ismapped():
+            reveal()
+            return
+        frame.lower(shown[0])   # шинэ алхмыг доор нь зурж бэлдэнэ
+        self._slide = Transition(self, frame, reveal, dx=STEP_SHIFT * direction)
+
+    def _render_chrome(self, step):
+        """Дээд мөр (буцах, алхмын заалт) ба доод мөрийн товч."""
+        index = STEPS.index(step)
+        welcome = step == "welcome"
         self.back_btn.grid_remove() if welcome else self.back_btn.grid()
         self.brand.grid() if welcome else self.brand.grid_remove()
         self.prog.grid_remove() if welcome else self.prog.grid()
@@ -263,7 +289,7 @@ class StartFlow(ctk.CTkFrame):
         if welcome:
             self.foot_note.configure(text="эсвэл Enter товч дарна уу")
             self.next_btn.configure(text="Эхлэх  →")
-        elif self.step == "level":
+        elif step == "level":
             self.foot_note.configure(text="Түвшнээ «Нарийвчилсан тохиргоо»-ноос хүссэн үедээ өөрчилж болно.")
             self.next_btn.configure(text="Үргэлжлүүлэх  →")
         else:
@@ -282,13 +308,13 @@ class StartFlow(ctk.CTkFrame):
             apply_level(self.app.settings, level if level in LEVELS else "normal")
         self.step = STEPS[STEPS.index(self.step) + 1]
         self.refresh()
-        self.render()
+        self.render(direction=1)
 
     def back(self):
         i = STEPS.index(self.step)
         if i > 0:
             self.step = STEPS[i - 1]
-            self.render()
+            self.render(direction=-1)
 
     def on_key(self, k):
         if k == "return":

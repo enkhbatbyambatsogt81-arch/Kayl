@@ -19,12 +19,15 @@ from .pages import EX_TITLES, HelpPage, HistoryPage, HomePage, SummaryPage, Work
 from .start import APP_NAME, StartFlow
 from .theme import (ACCENT, ACCENT_SOFT, BG, BORDER, INSET, MUTED, ON_ACCENT, SIDEBAR, TEXT, TEXT2, apply_ctk_theme, font,
                     pick)
+from .transitions import PAGE_SHIFT, Transition, frame_of, place_fill
 from .widgets import stick_figure
 
 NAV = [("start", "Эхлэх"), ("home", "Тохиргоо"), ("history", "Түүх"), ("help", "Заавар")]
 # Цонхны элементүүдийн хэмжээ. Linux-д дэлгэцийн томруулалтыг (HiDPI) CustomTkinter өөрөө мэддэггүй,
 # жижиг дэлгэцтэй зөөврийн компьютерт эсрэгээрээ багасгах хэрэгтэй болдог.
 SCALES = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
+# Зүүн цэсгүй, бүтэн цонхоор харагдах хуудсууд (видео том, урсгал цэвэрхэн)
+FULL_PAGES = ("start", "workout")
 IS_MAC = sys.platform == "darwin"
 
 
@@ -98,18 +101,25 @@ class App(ctk.CTk):
         self.theme_toggles = []
         # 3.0: зүүн цэсний «Хэмжээ» цэсийг хассан. Томруулах / жижигрүүлэх: Ctrl + / Ctrl − (macOS: ⌘), 100%: Ctrl 0
 
-        # --- Хуудсууд
-        self.content = ctk.CTkFrame(self, fg_color="transparent")
-        self.content.grid(row=0, column=1, sticky="nsew", padx=20, pady=16)
-        self.content.grid_columnconfigure(0, weight=1)
-        self.content.grid_rowconfigure(0, weight=1)
+        # --- Хуудсууд (3.1). Хоёр давхарга:
+        #   content: зүүн цэсний баруун талд (Тохиргоо, Дүн, Түүх, Заавар)
+        #   full:    бүх цонхыг эзэлнэ (Эхлэх, Дасгал). Харагдах эсэхийг давхарлалтын дарааллаар л солино,
+        #            ингэснээр зүүн цэсийг нуух / гаргахад бүх хуудас дахин байрлаж «үсрэхгүй».
+        # Хуудас бүр өөрийн давхаргад place()-ээр бүтэн байрлана (transitions.py).
+        self.content = ctk.CTkFrame(self, fg_color=BG, corner_radius=0)
+        self.content.grid(row=0, column=1, sticky="nsew")
+        self.content_area = self._page_area(self.content)
+        self.full = ctk.CTkFrame(self, fg_color=BG, corner_radius=0)
+        self.full.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        self.full_area = self._page_area(self.full)
+        self._transition = None
         self.pages = {
-            "start": StartFlow(self.content, self),
-            "home": HomePage(self.content, self),
-            "workout": WorkoutPage(self.content, self),
-            "summary": SummaryPage(self.content, self),
-            "history": HistoryPage(self.content, self),
-            "help": HelpPage(self.content, self),
+            "start": StartFlow(self.full_area, self),
+            "home": HomePage(self.content_area, self),
+            "workout": WorkoutPage(self.full_area, self),
+            "summary": SummaryPage(self.content_area, self),
+            "history": HistoryPage(self.content_area, self),
+            "help": HelpPage(self.content_area, self),
         }
         self.onboarding = Onboarding(self, on_close=self._onboarding_done,
                                      on_demo=lambda: self.start_workout(source="demo"))
@@ -168,25 +178,25 @@ class App(ctk.CTk):
         else:
             self.geometry(f"{w}x{h}+{int((sw - w) / 2)}+{int(max(0, (sh - h) / 2 - 30))}")
 
+    @staticmethod
+    def _page_area(layer):
+        layer.grid_columnconfigure(0, weight=1)
+        layer.grid_rowconfigure(0, weight=1)
+        area = ctk.CTkFrame(layer, fg_color="transparent")
+        area.grid(row=0, column=0, sticky="nsew", padx=20, pady=16)
+        return area
+
     # ---- хуудас солих
     def show(self, name):
         if self.current == "workout" and name != "workout":
             self.pages["workout"].stop()
-        for key, page in self.pages.items():
-            if key != name:
-                page.grid_remove()
+        prev, self.current = self.current, name
         page = self.pages[name]
-        page.grid(row=0, column=0, sticky="nsew")
-        self.current = name
-        # Дасгал ба эхлэх урсгалын үед зүүн цэсийг нууна (видео том, урсгал цэвэрхэн)
-        if name in ("workout", "start"):
-            self.sidebar.grid_remove()
-        else:
-            self.sidebar.grid()
         for key, b in self.nav.items():
             active = key == name or (key == "home" and name == "summary")
             b.configure(fg_color=ACCENT_SOFT if active else "transparent",
                         text_color=ACCENT if active else TEXT2, font=self._nav_fonts[active])
+        self._switch(prev, name)
         if name == "history":
             page.refresh()
         if name == "start":
@@ -194,6 +204,43 @@ class App(ctk.CTk):
         if name != "workout":
             self.refresh_progress()
         self.focus_set()
+
+    def _set_layer(self, full):
+        if full:
+            self.full.lift(self.content)      # цэс, content-оос дээр; танилцуулга, toast-оос доор
+        else:
+            self.full.lower(self.sidebar)
+
+    def _switch(self, prev, name):
+        """Шинэ хуудсыг хуучныхаа доор зурж бэлдээд, нэг дор солиод, зөөлөн гулсуулж байранд нь суулгана."""
+        if self._transition is not None:
+            self._transition.finish()   # өмнөх шилжилт дуусаагүй бол шууд дуусгана
+            self._transition = None
+        page = self.pages[name]
+        to_full = name in FULL_PAGES
+
+        def reveal():
+            self._set_layer(to_full)
+            frame_of(page).lift()
+            for key, other in self.pages.items():
+                if key != name:
+                    other.place_forget()
+
+        place_fill(page)
+        if prev is None or prev == name:   # апп нээгдэх, эсвэл ижил хуудас дахин
+            reveal()
+            return
+        if (prev in FULL_PAGES) == to_full:   # нэг давхаргад: хуучны доор
+            frame_of(page).lower(frame_of(self.pages[prev]))
+        # өөр давхаргад бол шинэ давхарга одоо доор нь байгаа тул хуудас нуугдмал хэвээр зурагдана
+        self._transition = Transition(self, page, reveal, dy=PAGE_SHIFT)
+
+    def finish_transition(self):
+        """Шилжилтийг шууд дуусгана (тест, дэлгэцийн зураг авахад)."""
+        if self._transition is not None:
+            self._transition.finish()
+            self._transition = None
+        self.pages["start"].finish_transition()
 
     def refresh_progress(self):
         records = load_history(self.log_dir)
@@ -339,6 +386,10 @@ class App(ctk.CTk):
         self.toast.place_forget()
 
     def on_close(self):
+        if self._toast_job is not None:
+            self.after_cancel(self._toast_job)
+            self._toast_job = None
+        self.finish_transition()
         if self.current == "workout":
             self.pages["workout"].stop()
         save_settings(self.settings)

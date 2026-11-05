@@ -146,8 +146,8 @@ class GuiScaleTest(unittest.TestCase):
         self.assertFalse(home.video_btn.winfo_manager())
         self.assertEqual(home.cam.winfo_manager(), "grid")
         app.show("history")                                  # дахин харуулахад шинэ хэмжээгээр байрлана
-        self.pump(0.2)
-        self.assertEqual(app.pages["history"]._parent_frame.winfo_manager(), "grid")
+        self.pump(0.4)
+        self.assertEqual(app.pages["history"]._parent_frame.winfo_manager(), "place")   # 3.1: давхаргад place()
 
     def test_charts_follow_scale(self):
         page = self.app.pages["workout"]
