@@ -104,6 +104,12 @@ class WorkoutConfig:
     # харагдаж байгаа ч idle_seconds хөдөлгөөнгүй байвал "амарч байна уу?" гэж сануулна.
     away_seconds: float = 5.0
     idle_seconds: float = 15.0
+    # 3.0 тогтвортой байдал: камерын шуугианаас болж шалгах жагсаалт, зөвлөмж кадр бүрт анивчихгүйн тулд
+    # шалгалт settle_seconds-ээс удаан алдагдвал л «алдагдсан» гэж үзнэ; шинэ зөвлөмж message_settle секунд
+    # тогтвортой байж, өмнөхөөсөө message_hold-оос удаан харагдсан бол л солигдоно.
+    settle_seconds: float = 0.4
+    message_settle: float = 0.2
+    message_hold: float = 0.6
 
 
 # Шалгуурын түвшин. Санааг LearnOpenCV-ийн "AI Fitness Trainer" (beginner / pro горимууд)-аас авсан:

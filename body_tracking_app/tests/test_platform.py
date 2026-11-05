@@ -158,6 +158,27 @@ class GuiScaleTest(unittest.TestCase):
         self.assertEqual(int(page.trace.cget("height")), round(page.trace.base_height * 1.5))
         self.assertEqual(page.trace.f(12)[1], -18)          # фонт пикселээр, томруулалттай
 
+    def test_keyboard_zoom_and_reset(self):
+        """3.0: «Хэмжээ» цэсний оронд Ctrl + / Ctrl − / Ctrl 0. 200%-иас ч амархан буцна."""
+        app = self.app
+        app.zoom(+1)
+        self.assertEqual(self.saved.get("ui_scale"), 1.1)
+        for _ in range(12):
+            app.zoom(+1)
+        self.assertEqual(app.settings["ui_scale"], 2.0)          # 200%-иас дээш гарахгүй
+        self.assertTrue(app.toast.winfo_manager())
+        self.assertIn("200%", app.toast.cget("text"))
+        app.zoom(-1)
+        self.assertEqual(app.settings["ui_scale"], 1.75)
+        app.zoom(0)
+        self.assertEqual(self.saved.get("ui_scale"), 1.0)
+        for _ in range(12):
+            app.zoom(-1)
+        self.assertEqual(app.settings["ui_scale"], 0.8)
+        app.event_generate("<Control-equal>")                   # жинхэнэ товчлуурын холболт
+        self.pump(0.2)
+        self.assertEqual(app.settings["ui_scale"], 0.9)
+
     def test_camera_scan_fills_menu(self):
         from form_checker.gui import pages
 

@@ -17,7 +17,7 @@ from . import ctk_fixes
 from .overlays import Onboarding
 from .pages import EX_TITLES, HelpPage, HistoryPage, HomePage, SummaryPage, WorkoutPage
 from .start import APP_NAME, StartFlow
-from .theme import (ACCENT, ACCENT_SOFT, BG, BORDER, INSET, MUTED, SIDEBAR, TEXT, TEXT2, apply_ctk_theme, font,
+from .theme import (ACCENT, ACCENT_SOFT, BG, BORDER, INSET, MUTED, ON_ACCENT, SIDEBAR, TEXT, TEXT2, apply_ctk_theme, font,
                     pick)
 from .widgets import stick_figure
 
@@ -96,15 +96,7 @@ class App(ctk.CTk):
             w.bind("<Button-1>", lambda e: self.show("history"))
         # 2.4: цайвар / харанхуй горимыг хуудас бүрийн баруун дээд буланд байх товчоор солино (theme_toggle.py)
         self.theme_toggles = []
-        size_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        size_row.grid(row=13, column=0, sticky="ew", padx=(20, 14), pady=(0, 20))
-        ctk.CTkLabel(size_row, text="Хэмжээ", font=font(12), text_color=MUTED).pack(side="left")
-        current = scale_label(self.settings["ui_scale"])
-        labels = [scale_label(v) for v in SCALES]
-        self.scale_menu = ctk.CTkOptionMenu(size_row, values=labels if current in labels else [*labels, current],
-                                            width=92, height=28, font=font(12), command=self._on_scale)
-        self.scale_menu.set(current)
-        self.scale_menu.pack(side="right")
+        # 3.0: зүүн цэсний «Хэмжээ» цэсийг хассан. Томруулах / жижигрүүлэх: Ctrl + / Ctrl − (macOS: ⌘), 100%: Ctrl 0
 
         # --- Хуудсууд
         self.content = ctk.CTkFrame(self, fg_color="transparent")
@@ -122,6 +114,17 @@ class App(ctk.CTk):
         self.onboarding = Onboarding(self, on_close=self._onboarding_done,
                                      on_demo=lambda: self.start_workout(source="demo"))
         self.bind("<KeyPress>", self._on_key)
+        mods = ("Control", "Command") if IS_MAC else ("Control",)
+        for mod in mods:
+            for key in ("plus", "equal", "KP_Add"):
+                self.bind(f"<{mod}-{key}>", lambda e: self.zoom(+1))
+            for key in ("minus", "underscore", "KP_Subtract"):
+                self.bind(f"<{mod}-{key}>", lambda e: self.zoom(-1))
+            for key in ("0", "KP_0"):
+                self.bind(f"<{mod}-{key}>", lambda e: self.zoom(0))
+        self.toast = ctk.CTkLabel(self, text="", font=font(14, "bold"), text_color=ON_ACCENT, fg_color=ACCENT,
+                                  corner_radius=12, height=36)
+        self._toast_job = None
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         if IS_MAC:
             # Cmd+Q эсвэл цэсний Quit: цонхны × товчтой адил камерыг зогсоож, тохиргоог хадгална
@@ -301,10 +304,39 @@ class App(ctk.CTk):
         self.after(50, lambda: [p.refresh_theme() for p in self.pages.values() if hasattr(p, "refresh_theme")])
 
     def _on_scale(self, label):
-        scale = int(label.rstrip("%")) / 100
+        self.set_scale(int(label.rstrip("%")) / 100)
+
+    def set_scale(self, scale):
+        scale = min(SCALES[-1], max(SCALES[0], scale))
         self.settings["ui_scale"] = scale
         ctk.set_widget_scaling(scale)
         save_settings(self.settings)
+
+    def zoom(self, step):
+        """Ctrl + / Ctrl − : дараагийн хэмжээ рүү (80–200%), Ctrl 0 : 100% руу буцна."""
+        cur = self.settings["ui_scale"]
+        if step == 0:
+            new = 1.0
+        elif step > 0:
+            new = next((v for v in SCALES if v > cur + 1e-6), SCALES[-1])
+        else:
+            new = next((v for v in reversed(SCALES) if v < cur - 1e-6), SCALES[0])
+        if abs(new - cur) > 1e-6:
+            self.set_scale(new)
+        self.show_toast(f"Хэмжээ {scale_label(new)}   ·   Ctrl 0 = 100%")
+        return "break"
+
+    def show_toast(self, text, ms=1600):
+        self.toast.configure(text=f"  {text}  ")
+        self.toast.place(relx=0.5, rely=1.0, y=-28, anchor="s")
+        self.toast.lift()
+        if self._toast_job is not None:
+            self.after_cancel(self._toast_job)
+        self._toast_job = self.after(ms, self._hide_toast)
+
+    def _hide_toast(self):
+        self._toast_job = None
+        self.toast.place_forget()
 
     def on_close(self):
         if self.current == "workout":

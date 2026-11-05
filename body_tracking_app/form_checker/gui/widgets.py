@@ -58,7 +58,17 @@ class ThemedCanvas(tk.Canvas):
             self.s = ctk.ScalingTracker.get_widget_scaling(self)
             ctk.ScalingTracker.add_widget(self._set_scaling, self)
             self.configure(height=round(height * self.s))
-        self.bind("<Configure>", lambda e: self.redraw())
+        self._redraw_job = None
+        self.bind("<Configure>", self._on_configure)
+
+    def _on_configure(self, _e=None):
+        """3.0: цонхны хэмжээ өөрчлөгдөхөд олон <Configure> ирдэг. Нэг удаа (idle үед) зурна, анивчихгүй."""
+        if self._redraw_job is None:
+            self._redraw_job = self.after_idle(self._idle_redraw)
+
+    def _idle_redraw(self):
+        self._redraw_job = None
+        self.redraw()
 
     def _set_scaling(self, widget_scaling, _window_scaling):
         self.s = widget_scaling

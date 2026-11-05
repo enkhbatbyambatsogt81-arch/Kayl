@@ -2,7 +2,7 @@
 
 import sys
 
-__version__ = "2.4"
+__version__ = "3.0"
 
 
 def safe_console():

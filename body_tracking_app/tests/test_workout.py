@@ -117,6 +117,29 @@ class WorkoutFlowTest(unittest.TestCase):
         self.assertIn("countdown", [v.phase for v in views])
         self.assertTrue(all(v.setup_checks is None for v in views if v.phase != "setup"))
 
+    def test_setup_does_not_flicker_with_noisy_camera(self):
+        # 3.0: бодит камерт бие кадрын ирмэгт ойрхон үед шалгалт кадр бүрт ✓/✗ болдог. Жагсаалт ба зөвлөмж
+        # анивчихгүй, харин удаан алдагдвал (0.4 с-ээс их) жинхэнээр «алдагдсан» болно.
+        frames, _ = make_sequence("squat", [], start_pause=2.0, seed=21, dropout_rate=0, noise_px=0)
+        w = Workout(create_analyzer("squat"), WorkoutConfig(ready_seconds=10))
+        views = []
+        for k, (t, pose) in enumerate(frames[:50]):
+            if k >= 10 and k % 2:
+                pose.img[:, 1] += 0.2 * pose.height       # кадр алгасаад хөл кадраас гарна
+            views.append(w.update(pose, t))
+        flicker = views[12:]
+        framed = [v.setup_checks[1] for v in flicker]
+        self.assertTrue(all(framed), framed)                  # нэг кадрын алдаа «✓»-г арилгахгүй
+        changes = sum(a.message != b.message for a, b in zip(flicker, flicker[1:]))
+        self.assertLessEqual(changes, 1)
+        t = frames[49][0]
+        cut = frames[50][1]
+        cut.img[:, 1] += 0.2 * cut.height
+        for k in range(20):                                   # 0.66 с турш хөл гарсан хэвээр
+            v = w.update(cut, t + (k + 1) / 30)
+        self.assertFalse(v.setup_checks[1])
+        self.assertEqual(v.message, "frame_feet")
+
     def test_depth_tone_once_per_deep_rep(self):
         # Зорилтот гүнд хүрсэн давталт бүрт нэг «depth» дохио, гүехэн давталтад дохио гарахгүй
         cfg = WorkoutConfig(target_reps=0)

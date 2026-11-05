@@ -18,7 +18,7 @@ from ..engine import WorkoutEngine
 from ..history import compare_with_history, load_history
 from ..messages import TIPS, WARNING_TITLES, t
 from .theme import (ACCENT, BAD, BORDER, CARD, FIGURE, GOOD, GOOD_SOFT, GOOD_TEXT, INFO, INSET, LEVEL_COLORS, MUTED,
-                    ON_ACCENT, PHASES, PRIMARY, SECONDARY, SEG, TEXT, TEXT2, VIDEO_BG, WARN, WARN_TEXT, font, pick)
+                    PHASES, PRIMARY, SECONDARY, SEG, SELECT, TEXT, TEXT2, VIDEO_BG, WARN, WARN_TEXT, font, pick)
 from .overlays import ConfirmCard, SetupChecklist
 from .theme_toggle import ThemeToggle
 from .widgets import AngleTrace, Card, HistoryChart, RepChart, RepDots, StatTile, stick_figure
@@ -103,11 +103,11 @@ def step_title(master, number, text):
 
 
 def auto_wrap(label, container, pad):
-    """Урт тайлбарыг савныхаа өргөнд тааруулж мөр ороох (цонхны өргөн, «Хэмжээ» өөрчлөгдөхөд)."""
+    """Урт тайлбарыг савныхаа өргөнд тааруулж мөр ороох (цонхны өргөн, хэмжээ өөрчлөгдөхөд)."""
     def on_resize(e):
         scale = ctk.ScalingTracker.get_widget_scaling(label)
         width = max(120, int(e.width / scale) - pad)
-        if label.cget("wraplength") != width:
+        if abs(label.cget("wraplength") - width) > 4:
             label.configure(wraplength=width)
     container.bind("<Configure>", on_resize, add="+")
 
@@ -137,14 +137,15 @@ class ExerciseCard(Card):
         self._texts = ((title, 96), (checks_lbl, 16), (camera_lbl, 16))   # (бичиг, баруун талын зай)
         self._narrow = None
         self.bind("<Configure>", self._on_resize, add="+")
-        self.check = ctk.CTkLabel(self, text="", font=font(12, "bold"), text_color=ON_ACCENT, fg_color=ACCENT,
+        self.check = ctk.CTkLabel(self, text="", font=font(12, "bold"), text_color="#ffffff", fg_color=SELECT,
                                   corner_radius=10, width=86, height=24)
         self._bind_all(self, lambda e: on_select(name))
 
     def _on_resize(self, e):
         """Нарийн цонхонд (жишээ нь 1366×768, 125%) зургийг нууж, бичгийг картын өргөнд ороно."""
         width = e.width / ctk.ScalingTracker.get_widget_scaling(self)
-        narrow = width < 430
+        # 3.0: босгоны ойролцоо зураг гарч/нуугдаж анивчихгүйн тулд 2 босготой (415 / 445)
+        narrow = width < 415 if self._narrow is None or not self._narrow else width < 445
         if narrow != self._narrow:
             self._narrow = narrow
             self.pic.grid_remove() if narrow else self.pic.grid()
@@ -153,7 +154,7 @@ class ExerciseCard(Card):
         left = 18 if narrow else 16 + 150 + 8 + 8   # зураг харагдвал түүний өргөн ба зай
         for lbl, right in self._texts:
             wrap = max(100, int(width - left - right - 8))
-            if lbl.cget("wraplength") != wrap:
+            if abs(lbl.cget("wraplength") - wrap) > 4:
                 lbl.configure(wraplength=wrap)
 
     def _bind_all(self, w, fn):
@@ -166,9 +167,9 @@ class ExerciseCard(Card):
             self._bind_all(child, fn)
 
     def set_selected(self, selected):
-        self.configure(border_color=ACCENT if selected else BORDER, border_width=2 if selected else 1)
+        self.configure(border_color=SELECT if selected else BORDER, border_width=2 if selected else 1)
         if selected:
-            self.check.configure(text="Сонгосон", fg_color=ACCENT)
+            self.check.configure(text="Сонгосон", fg_color=SELECT)
             self.check.place(relx=1.0, x=-14, y=14, anchor="ne")
         else:
             self.check.place_forget()
@@ -610,7 +611,8 @@ class WorkoutPage(ctk.CTkFrame):
 
     def _on_page_resize(self, e):
         """Намхан дэлгэц (жишээ нь 1280×800, 200% томруулалт) дээр самбарыг багтаахын тулд жижигрүүлнэ."""
-        compact = e.height / ctk.ScalingTracker.get_widget_scaling(self) < 780
+        height = e.height / ctk.ScalingTracker.get_widget_scaling(self)
+        compact = height < 760 if not self._compact else height < 800   # 3.0: 2 босго, анивчихгүй
         if compact == self._compact:
             return
         self._compact = compact
@@ -1205,6 +1207,7 @@ HELP = [
         "E: дасгалыг дуусгаж дүн харах   ·   Esc: гарах (давталт хийсэн бол дүнгээ харах эсэхийг асууна)",
         "F эсвэл F11: бүтэн дэлгэц (холоос харахад тохиромжтой; F эсвэл Esc дарж гарна)",
         "Эхлэх урсгалд Enter дарвал дараагийн алхам руу шилжинэ, Esc буцна.",
+        "Ctrl + / Ctrl −: цонхны бүх зүйлийг томруулах / жижигрүүлэх, Ctrl 0: 100% (macOS: ⌘ + / ⌘ − / ⌘ 0).",
     ]),
     ("Юуг шалгадаг вэ", [
         "Суулт: гүн (өвдөг ≤ 100°), их бие хэт урагш хазайх (> 50°), өвдөг дотогш орох (урдаас), "
@@ -1220,8 +1223,8 @@ HELP = [
         "Тоолол эхлэхгүй: бие бүтэн харагдаж, эхлэх байрлалдаа 1 секунд зогсох хэрэгтэй. Шууд эхлэх бол Space.",
         "Удаан ажиллаж байна: «Хурдан (lite)» загварыг сонгоно.",
         "Камергүй үзэх бол «Тохиргоо» хуудаснаас «Демо (камергүй)»-г сонгоно.",
-        "Цонх, бичиг хэт жижиг эсвэл том: зүүн цэсний доод талын «Хэмжээ»-г өөрчилнө (жишээ нь Linux-ийн өндөр "
-        "нягтралтай дэлгэцэд 150–200%, жижиг дэлгэцтэй зөөврийн компьютерт 90%).",
+        "Цонх, бичиг хэт жижиг эсвэл том: Ctrl + томруулна, Ctrl − жижигрүүлнэ, Ctrl 0 нь 100% руу буцаана "
+        "(macOS: ⌘). 80–200%, сонголт хадгалагдана.",
     ]),
 ]
 

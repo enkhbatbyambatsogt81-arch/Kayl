@@ -10,6 +10,7 @@
   * done      : бүх сет дууссан, дүнгийн дэлгэц.
 Мөн кадр бүрт гарах дуут дохионы үйл явдлуудыг (events) буцаана.
 2.0: сетийн дунд хүн удаан алга болбол түр зогсоож (setup руу буцаана), удаан хөдөлгөөнгүй байвал сануулна.
+3.0: шалгах жагсаалт ба зөвлөмжийг тогтворжуулсан (бодит камерын шуугианаас болж кадр бүрт анивчихгүй).
 """
 
 from __future__ import annotations
@@ -23,6 +24,31 @@ from .exercises.base import ExerciseAnalyzer, Feedback, RepResult
 from .pose import Pose, framing_hint
 
 SETUP, COUNTDOWN, ACTIVE, REST, DONE = "setup", "countdown", "active", "rest", "done"
+
+
+class Debounce:
+    """Үнэн/худал утгыг тогтворжуулна: худал болсныг `off` секунд тогтвортой байж байж л хүлээн авна.
+
+    Бодит камерт бие кадрын ирмэгт ойрхон эсвэл гэрэл муу үед шалгалт кадр бүрт ✓ / ✗ болж анивчдаг.
+    """
+
+    def __init__(self):
+        self.value = False
+        self.since = None
+
+    def update(self, raw, t, on=0.0, off=0.4):
+        raw = bool(raw)
+        if raw == self.value:
+            self.since = None
+        else:
+            if self.since is None:
+                self.since = t
+            if t - self.since >= (on if raw else off):
+                self.value, self.since = raw, None
+        return self.value
+
+    def reset(self):
+        self.value, self.since = False, None
 
 
 @dataclass
@@ -64,6 +90,10 @@ class Workout:
         self._away_since = None     # сетийн дунд хүн алга болсон хугацаа
         self._paused_away = False   # хүн алга болсны улмаас түр зогссон эсэх
         self._last_activity = 0.0   # сүүлд хөдөлгөөн (давталт) хийсэн хугацаа
+        self._present, self._framed = Debounce(), Debounce()
+        self._shown = None          # (message, level): дэлгэцэнд харагдаж буй зөвлөмж
+        self._shown_since = 0.0
+        self._candidate, self._candidate_since = None, 0.0
 
     # ---- Гаднаас дуудах ------------------------------------------------------
     @property
@@ -97,6 +127,7 @@ class Workout:
     # ---- Кадр бүрт ----------------------------------------------------------
     def update(self, pose: Pose | None, t: float) -> WorkoutView:
         fb = self.analyzer.update(pose, t)
+        phase_before = self.phase
         events: list[str] = []
         message, level = fb.message, fb.level
         countdown, ready_progress, rest_left, checks = None, 0.0, None, None
@@ -107,9 +138,13 @@ class Workout:
             if pose is not None and fb.main_angle is not None:
                 hint = framing_hint(pose, self.analyzer.common.min_visibility,
                                     min_size=self.cfg.min_body_size)
-            framed = hint is None and fb.main_angle is not None
+            settle = self.cfg.settle_seconds
+            present = self._present.update(pose is not None, t, off=settle)
+            framed = self._framed.update(hint is None and fb.main_angle is not None, t, off=settle)
+            # Эхлэх байрлал (counter.state) нь өөрөө тогтворжсон тул шууд ашиглана: хөдөлж эхэлмэгц 1 секундын
+            # хүлээлт дахин эхэлнэ. Зөвхөн кадрт багтах шалгалт шуугиантай.
             ready = framed and self.analyzer.counter.state == "top"
-            checks = (pose is not None, framed, ready)
+            checks = (present, framed, ready)
             if ready:
                 if self.ready_since is None:
                     self.ready_since = t
@@ -201,6 +236,8 @@ class Workout:
         if self.phase == DONE:
             message, level = "workout_done", "ok"
 
+        force = self.phase != phase_before or bool(events) or fb.new_rep is not None
+        message, level = self._settle_message(message, level, t, force)
         cur = self.sets[-1]
         return WorkoutView(phase=self.phase, fb=fb, message=message, level=level,
                            set_index=self.set_index, sets_total=self.cfg.sets, target=self.cfg.target_reps,
@@ -208,12 +245,31 @@ class Workout:
                            countdown=countdown, ready_progress=ready_progress, rest_left=rest_left, events=events,
                            setup_checks=checks if self.phase == SETUP else None)
 
+    def _settle_message(self, message, level, t, force):
+        """Зөвлөмжийг тогтворжуулна: шинэ мессеж message_settle секунд тогтвортой байж, өмнөх нь message_hold
+        секундээс удаан харагдсан бол л солино. Шат солигдох, давталт тоологдох үед шууд солино."""
+        # Хүн дөнгөж харагдсан үед («no_person»-оос) юу засахыг шууд хэлнэ
+        if force or self._shown is None or self._shown[0] == "no_person" or message == self._shown[0]:
+            if self._shown is None or message != self._shown[0]:
+                self._shown_since = t
+            self._shown = (message, level)
+            self._candidate = None
+            return message, level
+        if self._candidate != message:
+            self._candidate, self._candidate_since = message, t
+        if t - self._candidate_since >= self.cfg.message_settle and t - self._shown_since >= self.cfg.message_hold:
+            self._shown, self._shown_since, self._candidate = (message, level), t, None
+        return self._shown
+
     def _enter(self, phase, t):
         if phase == ACTIVE:
             # Тоолол эхлэхээс өмнө дууссан (бүртгэгдээгүй) давталтын "Зөв!" мессежийг харуулахгүй
             self.analyzer.result_until = -1.0
             self._last_activity = t
             self._away_since = None
+        if phase == SETUP:
+            for d in (self._present, self._framed):
+                d.reset()
         self.phase = phase
         self.phase_start = t
         self.ready_since = None

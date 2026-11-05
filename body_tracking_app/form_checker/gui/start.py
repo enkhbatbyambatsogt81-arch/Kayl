@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import customtkinter as ctk
+from PIL import Image, ImageDraw
 
-from .theme import ACCENT, BORDER, FIGURE, GOOD_SOFT, GOOD_TEXT, INSET, MUTED, PRIMARY, TEXT, TEXT2, font
+from .theme import ACCENT, BORDER, FIGURE, INSET, MUTED, PRIMARY, SECONDARY, SELECT, TEXT, TEXT2, font
 from .theme_toggle import ThemeToggle
 from .widgets import Card, stick_figure
 
@@ -46,8 +47,25 @@ def _hover(widget, fn):
         _hover(child, fn)
 
 
+def _settings_icon(size=18):
+    """«Нарийвчилсан тохиргоо» товчны гулсуурт дүрс (3 зураас, бөмбөлөгтэй)."""
+    def draw(rgb):
+        k = 4
+        img = Image.new("RGBA", (size * k, size * k), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        w = max(1, round(1.7 * k))
+        for i, x in enumerate((0.65, 0.3, 0.55)):
+            y = (0.22 + i * 0.28) * size * k
+            d.line((1.5 * k, y, (size - 1.5) * k, y), fill=rgb + (255,), width=w)
+            cx = x * size * k
+            r = 2.6 * k
+            d.ellipse((cx - r, y - r, cx + r, y + r), fill=rgb + (255,))
+        return img.resize((size, size), Image.LANCZOS)
+    return ctk.CTkImage(light_image=draw((17, 17, 17)), dark_image=draw((242, 242, 242)), size=(size, size))
+
+
 class ChoiceCard(Card):
-    """Сонгох карт: сонгосон үед 2px хар хүрээ ба ✓ тэмдэг."""
+    """Сонгох карт: сонгосон үед 2px цэнхэр хүрээ ба ✓ тэмдэг."""
 
     def __init__(self, master, on_pick):
         super().__init__(master, corner_radius=18)
@@ -60,9 +78,9 @@ class ChoiceCard(Card):
         _hover(self, self.on_pick)
 
     def set_selected(self, selected):
-        self.configure(border_color=ACCENT if selected else BORDER, border_width=2 if selected else 1)
-        self.mark.configure(text="✓" if selected else "", fg_color=ACCENT if selected else "transparent",
-                            text_color=("#ffffff", "#111111"))
+        self.configure(border_color=SELECT if selected else BORDER, border_width=2 if selected else 1)
+        self.mark.configure(text="✓" if selected else "", fg_color=SELECT if selected else "transparent",
+                            text_color="#ffffff")
 
 
 class StartFlow(ctk.CTkFrame):
@@ -95,10 +113,11 @@ class StartFlow(ctk.CTkFrame):
         right = ctk.CTkFrame(top, fg_color="transparent")
         right.grid(row=0, column=2, sticky="e")
         ThemeToggle(right, app).pack(side="right")
-        self.more_btn = ctk.CTkButton(right, text="Нарийвчилсан тохиргоо", width=190, height=40, font=font(14),
-                                      fg_color="transparent", text_color=TEXT2, hover_color=INSET,
-                                      command=lambda: app.show("home"))
-        self.more_btn.pack(side="right", padx=(0, 4))
+        # 3.0: товч гэдэг нь шууд танигдахаар хүрээтэй, дүрстэй
+        self.more_btn = ctk.CTkButton(right, text="Нарийвчилсан тохиргоо", image=_settings_icon(), compound="left",
+                                      width=214, height=40, corner_radius=10, font=font(14, "bold"),
+                                      command=lambda: app.show("home"), **SECONDARY)
+        self.more_btn.pack(side="right", padx=(0, 10))
 
         self.frames = {"welcome": self._build_welcome(), "level": self._build_level(),
                        "exercise": self._build_exercise()}
@@ -134,9 +153,6 @@ class StartFlow(ctk.CTkFrame):
         img = ctk.CTkImage(light_image=stick_figure("squat", (340, 260), color=FIGURE[0]),
                            dark_image=stick_figure("squat", (340, 260), color=FIGURE[1]), size=(340, 260))
         ctk.CTkLabel(pic, text="", image=img).place(relx=0.5, rely=0.5, anchor="center")
-        ctk.CTkLabel(pic, text="✓  Зөв гүнд хүрсэн", font=font(14, "bold"), text_color=GOOD_TEXT,
-                     fg_color=GOOD_SOFT, corner_radius=16, height=34).place(relx=1.0, rely=1.0, x=-24, y=-24,
-                                                                            anchor="se")
         return f
 
     def _title(self, master, title, sub):
