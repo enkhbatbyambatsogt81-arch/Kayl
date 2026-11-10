@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#ffffff">
+  <title>Ухаалаг дасгалжуулагч</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <main id="screen"></main>
+    <nav id="tabs"></nav>
+  </div>
+  <script>
+    // Хуудас ачаалагдаагүй бол (хэт хуучин WebView) хоосон цагаан дэлгэцийн оронд тайлбар харуулна
+    window.addEventListener("error", function (e) { window.__bootError = (e && e.message) || "алдаа"; });
+    setTimeout(function () {
+      var screen = document.getElementById("screen");
+      if (screen && !screen.firstChild) {
+        screen.innerHTML = '<div style="padding:48px 24px;font:16px/1.5 sans-serif"><b>Апп ачаалагдсангүй</b>' +
+          '<p>Play Store-оос «Android System WebView» болон «Chrome»-оо шинэчлээд аппаа дахин нээнэ үү.</p>' +
+          '<p style="color:#888;font-size:13px">' + (window.__bootError || "") + "</p></div>";
+      }
+    }, 6000);
+  </script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

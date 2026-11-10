@@ -8,7 +8,6 @@ import time
 import urllib.request
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
 
 from .paths import RES_DIR
@@ -122,10 +121,12 @@ class PoseEstimator:
     """Видео урсгалд зориулсан MediaPipe PoseLandmarker (VIDEO горим)."""
 
     def __init__(self, variant="lite", min_detection=0.5, min_tracking=0.5):
+        # cv2, mediapipe-ийг энд л уншина: Pose, framing_hint-ийг утасны хувилбар (mobile.py) OpenCV-гүйгээр ашиглана
+        import cv2
         import mediapipe as mp
         from mediapipe.tasks.python import vision
 
-        self._mp = mp
+        self._mp, self._cv2 = mp, cv2
         # Замд кирилл үсэг эсвэл зай байвал (жишээ нь «Хүн компьютерын харилцаа») MediaPipe файлыг
         # Windows дээр нээж чаддаггүй. Тиймээс загварыг Python-оор уншаад санах ойгоор дамжуулна.
         with open(ensure_model(variant), "rb") as f:
@@ -151,7 +152,7 @@ class PoseEstimator:
         self._last_ts = timestamp_ms
 
         h, w = frame_bgr.shape[:2]
-        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        rgb = self._cv2.cvtColor(frame_bgr, self._cv2.COLOR_BGR2RGB)
         image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
         t0 = time.perf_counter()
         result = self._landmarker.detect_for_video(image, timestamp_ms)

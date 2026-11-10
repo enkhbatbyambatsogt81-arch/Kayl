@@ -1,0 +1,9 @@
+{
+  "name": "ukhaalag-dasgaljuulagch-android-web",
+  "private": true,
+  "description": "Утасны хувилбарын вэб хэсэгт хэрэгтэй сангууд (build_web.py эдгээрийг assets руу хуулна)",
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.2.2",
+    "pyodide": "0.27.8"
+  }
+}

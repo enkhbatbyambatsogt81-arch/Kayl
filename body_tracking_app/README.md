@@ -37,6 +37,7 @@
 | macOS, Apple Silicon (M1–M4) | `…-macos-apple-silicon.zip` | `UkhaalagDasgaljuulagch.app`-ийг Applications руу чирээд нээнэ. «Apple could not verify» гарвал **System Settings → Privacy & Security → Open Anyway** |
 | macOS, Intel | `…-macos-intel.zip` (байхгүй бол доорх эх кодын аргаар) | Apple Silicon-той адил |
 | Linux x86_64 | `…-linux-x64.tar.gz` | `tar -xzf` хийгээд хавтас доторх `UkhaalagDasgaljuulagch` (OpenGL: `sudo apt install libegl1 libgl1`) |
+| **Android утас** (7.0+) | `…-android.apk` | Утсаараа татаж нээгээд **Суулгах**. «Энэ эх сурвалжаас хориглосон» гэвэл **Тохиргоо → Энэ эх сурвалжаас зөвшөөрөх**. Дэлгэрэнгүй: [android/README.md](android/README.md) |
 
 Апп тоон гарын үсэггүй тул систем анх нээхэд нэг удаа анхааруулга өгдөг; дараа нь шууд нээгдэнэ. Задалсны
 дараа ~470 МБ эзэлнэ. Тохиргоо ба дасгалын түүх хэрэглэгчийн хавтсанд хадгалагдана (Windows:
@@ -46,7 +47,8 @@
 Шинэ хувилбарын файлуудыг GitHub Actions өөрөө угсардаг: `v` үсгээр эхэлсэн tag push хийхэд
 (`git tag v2.4 && git push origin v2.4`) эсвэл GitHub-ийн **Actions → Release → Run workflow** дээр tag-аа
 (жишээ нь `v2.4`) бичээд ажиллуулахад [`.github/workflows/release.yml`](../.github/workflows/release.yml)
-Windows, macOS, Linux дээр угсарч, шалгаад Releases-д байршуулна. Өөрийн компьютер дээр угсрах бол:
+Windows, macOS, Linux дээр угсарч, шалгаад, Android APK-г мөн угсарч (эмулятор дээр ажиллуулж шалгаад)
+Releases-д байршуулна. Өөрийн компьютер дээр угсрах бол:
 `python -m pip install -r requirements.txt pyinstaller` → `python -m PyInstaller packaging/ukhaalag.spec --noconfirm`
 (үр дүн `dist/` хавтсанд, тухайн системдээ л ажиллана).
 
@@ -167,7 +169,7 @@ python3 -m venv .venv
 | Видео файл дээр шалгах | Өмнө нь бичсэн видеог шалгана |
 | Демо (камергүй, командын мөр) | Камергүйгээр зохиомол хүн дасгал хийж буйг үзүүлнэ |
 | Хатуу шалгуур + автоматаар таних (2.0, вэбкамер) | `--level strict --auto` |
-| Тест ажиллуулах | 94 автомат тест |
+| Тест ажиллуулах | 102 автомат тест |
 | Хурд хэмжих (benchmark) | Таны компьютер дээрх FPS, хоцролтыг хэмжинэ |
 | Шүүлтүүрийн харьцуулалт (1€ ба EMA, 2.0) | 1.x ба 2.0-ийн өнцгийн шүүлтүүрийг синтетик өгөгдөл дээр харьцуулна |
 | Логикийн нарийвчлал хэмжих (синтетик) | Давталт тоолох, алдаа илрүүлэх нарийвчлал |
@@ -359,6 +361,7 @@ body_tracking_app/
 ├── main.py                  # Командын мөрийн хувилбар (OpenCV цонх)
 ├── benchmark.py             # Хурд хэмжих хэрэгсэл
 ├── packaging/               # Бэлэн файл угсрах: ukhaalag.spec (PyInstaller), Releases-ийн заавар (2.3)
+├── android/                 # Утасны хувилбар (APK): вэб интерфейс + Android бүрхүүл, android/README.md (3.2)
 ├── requirements.txt
 ├── CHANGELOG.md             # Хувилбарын түүх
 ├── CREDITS.md               # Ашигласан нээлттэй эхийн санаа, лиценз
@@ -380,6 +383,8 @@ body_tracking_app/
 │   ├── settings.py          # GUI-ийн тохиргоо (settings.json) хадгалах
 │   ├── paths.py             # Загвар, дуу, тохиргоо, түүх хаана байхыг тодорхойлно (бэлэн файлд хэрэглэгчийн хавтас)
 │   ├── selftest.py          # gui.py --self-test: бэлэн файл зөв угсрагдсан эсэхийг шалгах
+│   ├── demo.py              # Демо горимын зохиомол хүн (компьютер ба утас хоёуланд)
+│   ├── mobile.py            # Утасны хувилбарын хөдөлгүүр: 33 цэг -> дэлгэцэнд хэрэгтэй бүхэн (OpenCV-гүй, 3.2)
 │   ├── gui/
 │   │   ├── app.py           # Үндсэн цонх, зүүн цэс, товчлуур (Ctrl +/− томруулалт)
 │   │   ├── start.py         # Эхлэх урсгал: тавтай морил → түвшин → дасгал (2.3)
@@ -406,5 +411,6 @@ body_tracking_app/
     ├── test_app.py          # Хөдөлгүүр (демо), түүх, тохиргоо, цонхтой интерфейс
     ├── test_v2.py           # 2.0: 1€ шүүлтүүр, түвшин, оноо, автоматаар таних, түр зогсолт
     ├── test_platform.py     # 2.1: камерын backend, кирилл зам, томруулалт (Ctrl +/−), файлын зам
-    └── test_transitions.py  # 3.1: хуудас хооронд зөөлөн шилжих
+    ├── test_transitions.py  # 3.1: хуудас хооронд зөөлөн шилжих
+    └── test_mobile.py       # 3.2: утасны хөдөлгүүр компьютерынхтай кадр бүрээр ижил эсэх
 ```

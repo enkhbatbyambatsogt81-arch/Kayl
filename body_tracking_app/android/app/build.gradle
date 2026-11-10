@@ -1,0 +1,52 @@
+plugins {
+    id "com.android.application"
+}
+
+// Хувилбарын дугаарыг компьютерын апптай нэг газраас авна (form_checker/__init__.py)
+def versionFile = rootProject.file("../form_checker/__init__.py")
+def appVersion = (versionFile.text =~ /__version__\s*=\s*"([^"]+)"/)[0][1]
+def parts = (appVersion.tokenize(".") + ["0", "0"]).take(3).collect { it.toInteger() }
+
+android {
+    namespace "mn.dasgaljuulagch.app"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "mn.dasgaljuulagch.app"
+        minSdk 24
+        targetSdk 34
+        versionCode parts[0] * 10000 + parts[1] * 100 + parts[2]
+        versionName appVersion
+    }
+
+    // Play Store-оор биш, APK файлаар тараадаг тул түлхүүрийг репод хадгалсан: шинэ хувилбар хуучныхаа дээр
+    // (өгөгдлөө алдалгүй) суухын тулд хувилбар бүр ижил түлхүүрээр гарын үсэг зурагдсан байх ёстой.
+    signingConfigs {
+        sideload {
+            storeFile rootProject.file("sideload.keystore")
+            storePassword "sideload"
+            keyAlias "sideload"
+            keyPassword "sideload"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

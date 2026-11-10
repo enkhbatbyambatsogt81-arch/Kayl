@@ -10,3 +10,11 @@ models/pose_landmarker_heavy.task
 /build/
 /dist/
 selftest.log
+# Android хувилбар: угсрах явцад үүсдэг (android/README.md)
+/android/node_modules/
+/android/.cache/
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/app/src/main/assets/www/
+/android/local.properties

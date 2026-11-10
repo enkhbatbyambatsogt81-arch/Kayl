@@ -1,0 +1,299 @@
+/* Ухаалаг дасгалжуулагч — утасны хувилбар. Өнгө нь компьютерын хувилбарын theme.py-тай ижил:
+   цагаан, минимал; өнгийг зөвхөн утгатай газар (ногоон = зөв, улаан = алдаа, шар = анхааруулга). */
+
+:root {
+  --bg: #ffffff; --card: #ffffff; --inset: #f5f5f5; --border: #e8e8e8; --border-strong: #d4d4d4;
+  --text: #111111; --text2: #5c5c5c; --muted: #9a9a9a;
+  --accent: #111111; --on-accent: #ffffff; --accent-soft: #f0f0f0;
+  --select: #2a78d6; --select-soft: #e3eefb;
+  --good: #0ca30c; --warn: #fab219; --bad: #d03b3b;
+  --good-soft: #e8f5e8; --good-text: #0e7a0e; --warn-soft: #fff3d6; --warn-text: #8a5a00;
+  --seg: #ececec; --seg-on: #ffffff;
+  --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+:root[data-theme="dark"] {
+  --bg: #141414; --card: #1f1f1f; --inset: #2a2a2a; --border: #333333; --border-strong: #454545;
+  --text: #f2f2f2; --text2: #b3b3b3; --muted: #8a8a8a;
+  --accent: #f2f2f2; --on-accent: #111111; --accent-soft: #2a2a2a;
+  --select: #3987e5; --select-soft: #1d2f45;
+  --good-soft: #173018; --good-text: #7bd87b; --warn-soft: #3a2e12; --warn-text: #f3c35a;
+  --seg: #2a2a2a; --seg-on: #4a4a4a;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--text); overflow: hidden; overscroll-behavior: none;
+  font: 16px/1.4 Roboto, "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+}
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+h1, h2, h3, p { margin: 0; }
+
+#app { height: 100%; display: flex; flex-direction: column; }
+#screen { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+
+/* ---- Хуудас ба шилжилт (компьютерын 3.1-тэй адил: доороос зөөлөн гулсаж орно) ---- */
+.page {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  padding: calc(12px + var(--safe-top)) 18px 10px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  animation: rise .22s cubic-bezier(.2, .8, .2, 1);
+}
+.page.from-right { animation-name: from-right; }
+.page.from-left { animation-name: from-left; }
+@keyframes rise { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes from-right { from { transform: translateX(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes from-left { from { transform: translateX(-32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .page { animation: none; } }
+
+/* ---- Доод цэс ---- */
+#tabs {
+  display: flex; border-top: 1px solid var(--border); background: var(--bg);
+  padding-bottom: var(--safe-bottom);
+}
+#tabs.hidden { display: none; }
+#tabs button {
+  flex: 1; padding: 8px 0 9px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 12px; color: var(--muted);
+}
+#tabs button svg { width: 24px; height: 24px; }
+#tabs button.on { color: var(--text); font-weight: 700; }
+
+/* ---- Нийтлэг элементүүд ---- */
+.topbar { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 8px; }
+.topbar .grow { flex: 1; }
+.brand { font-size: 17px; font-weight: 700; }
+.title { font-size: 26px; font-weight: 800; line-height: 1.15; }
+.sub { color: var(--text2); font-size: 15px; margin-top: 6px; }
+.label { color: var(--text2); font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px;
+  padding: 0 18px; border-radius: 12px; font-weight: 700; font-size: 16px;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--text);
+}
+.btn:active { background: var(--inset); }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn.primary:active { opacity: .85; }
+.btn.big { min-height: 56px; font-size: 18px; width: 100%; }
+.btn.ghost { border-color: transparent; color: var(--text2); padding: 0 10px; }
+.btn.small { min-height: 40px; font-size: 14px; padding: 0 12px; border-radius: 10px; }
+.btn svg { width: 20px; height: 20px; }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+
+.card { border: 1px solid var(--border); border-radius: 18px; background: var(--card); padding: 16px; }
+.inset { background: var(--inset); border-radius: 14px; }
+
+.seg { display: flex; background: var(--seg); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { flex: 1; min-height: 36px; border-radius: 8px; font-size: 14px; font-weight: 600; padding: 0 8px; }
+.seg button.on { background: var(--seg-on); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); }
+
+.switch { width: 50px; height: 30px; border-radius: 15px; background: var(--border-strong); position: relative;
+          flex: none; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+                 background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .15s; }
+.switch.on { background: var(--select); }
+.switch.on::after { transform: translateX(20px); }
+
+/* Горим солих товч: мөнгөлөг гулсуур, бөмбөлөг дээр нар эсвэл сар (компьютерын 2.4-тэй адил) */
+.theme-toggle {
+  width: 60px; height: 30px; border-radius: 15px; position: relative; flex: none;
+  background: linear-gradient(#fafafa, #c4c5c8); border: 1px solid #cdced1;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .14), inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+.theme-toggle .knob {
+  position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(#ffffff, #e2e3e6); border: 1px solid #c8c9cd; color: #3c3e42;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: transform .2s cubic-bezier(.2, .8, .2, 1), background .2s;
+}
+.theme-toggle .knob svg { width: 15px; height: 15px; }
+:root[data-theme="dark"] .theme-toggle { background: linear-gradient(#ecedf0, #a8aaaf); border-color: #96989c;
+                                         box-shadow: 0 0 9px rgba(255, 255, 255, .38); }
+:root[data-theme="dark"] .theme-toggle .knob { transform: translateX(30px); background: linear-gradient(#46484e, #18191c);
+                                               border-color: #0c0c0e; color: #f5f5f7; }
+
+/* ---- Эхлэх урсгал ---- */
+.steps { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.steps .bars { display: flex; gap: 6px; }
+.steps .bars i { width: 44px; height: 4px; border-radius: 2px; background: var(--border); }
+.steps .bars i.on { background: var(--accent); }
+.steps span { font-size: 12px; color: var(--text2); }
+
+.welcome { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 22px; min-height: 0; }
+.welcome .pic { border-radius: 28px; display: flex; align-items: center; justify-content: center; padding: 18px;
+                flex: 1; max-height: 300px; min-height: 150px; }
+.welcome .pic svg { width: 100%; height: 100%; max-width: 320px; }
+.welcome h1 { font-size: 38px; font-weight: 800; line-height: 1.08; margin: 8px 0 12px; }
+.figure { color: var(--text); }
+
+.choices { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.choice { position: relative; text-align: left; border: 1px solid var(--border); border-radius: 18px;
+          background: var(--card); padding: 16px 18px; display: block; width: 100%; }
+.choice.on { border: 2px solid var(--select); padding: 15px 17px; }
+.choice .mark { position: absolute; top: 14px; right: 14px; width: 26px; height: 26px; border-radius: 50%;
+                display: none; align-items: center; justify-content: center; background: var(--select); color: #fff;
+                font-weight: 800; font-size: 14px; }
+.choice.on .mark { display: flex; }
+.choice h3 { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.choice .who { color: var(--text2); font-size: 14px; margin: 4px 0 10px; padding-right: 30px; }
+.choice .facts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text2);
+                 border-top: 1px solid var(--border); padding-top: 10px; }
+.choice .facts b { color: var(--text); }
+.choice .angles { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.pill { font-size: 12px; font-weight: 700; background: var(--inset); border-radius: 10px; padding: 3px 10px; }
+.choice.exercise { display: flex; gap: 14px; align-items: center; }
+.choice.exercise .pic { width: 120px; height: 86px; flex: none; display: flex; align-items: center;
+                        justify-content: center; }
+.choice.exercise .pic svg { width: 104px; height: 72px; }
+.choice.exercise .desc { color: var(--text2); font-size: 13px; margin-top: 2px; padding-right: 26px; }
+
+.footer { margin-top: auto; padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.footer .note { color: var(--text2); font-size: 13px; text-align: center; }
+
+/* ---- Тохиргоо ---- */
+.group { margin-top: 18px; }
+.group > .label { display: block; margin: 0 4px 8px; }
+.rows { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 56px;
+       border-top: 1px solid var(--border); }
+.row:first-child { border-top: 0; }
+.row .name { flex: 1; min-width: 0; }
+.row .name small { display: block; color: var(--text2); font-size: 12.5px; line-height: 1.3; margin-top: 1px; }
+.row.col { flex-direction: column; align-items: stretch; gap: 8px; }
+.row.off { opacity: .45; pointer-events: none; }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border-strong);
+                  font-size: 22px; font-weight: 600; line-height: 1; }
+.stepper button:active { background: var(--inset); }
+.stepper output { min-width: 58px; padding: 0 6px; white-space: nowrap; text-align: center; font-weight: 800; font-size: 17px; }
+.version { text-align: center; color: var(--muted); font-size: 12px; margin: 18px 0 6px; }
+
+/* ---- Дүн, түүх ---- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.stat { padding: 12px 8px; text-align: center; }
+.stat b { display: block; font-size: 26px; font-weight: 800; line-height: 1.1; }
+.stat span { font-size: 12px; color: var(--text2); }
+.banner { border-radius: 14px; padding: 12px 14px; font-weight: 700; margin-top: 14px; }
+.banner.good { background: var(--good-soft); color: var(--good-text); }
+.banner.warn { background: var(--warn-soft); color: var(--warn-text); }
+.dots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.dots i { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+          font-style: normal; font-size: 11px; font-weight: 800; color: #fff; background: var(--good); }
+.dots i.bad { background: var(--bad); }
+.issue { padding: 12px 0; border-top: 1px solid var(--border); }
+.issue:first-child { border-top: 0; padding-top: 2px; }
+.issue h4 { margin: 0; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
+.issue h4 span { margin-left: auto; color: var(--text2); font-weight: 600; font-size: 13px; flex: none; }
+.issue p { color: var(--text2); font-size: 13.5px; margin-top: 3px; }
+.section { margin-top: 16px; }
+.section > h3 { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+.record { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--border); }
+.record:first-child { border-top: 0; }
+.record .what { flex: 1; min-width: 0; }
+.record .what b { display: block; }
+.record .what small { color: var(--text2); }
+.record .acc { font-weight: 800; font-size: 18px; }
+.empty { color: var(--text2); text-align: center; padding: 40px 10px; }
+.help p { color: var(--text2); font-size: 14.5px; margin-top: 6px; }
+.help li { color: var(--text2); font-size: 14.5px; margin: 4px 0; }
+.help ul, .help ol { margin: 6px 0 0; padding-left: 20px; }
+
+/* ---- Дасгалын дэлгэц: камер бүтэн дэлгэцээр, дээр нь мэдээлэл ---- */
+.workout { position: absolute; inset: 0; background: #000; color: #fff; overflow: hidden; }
+.workout canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.workout video { position: absolute; width: 2px; height: 2px; opacity: 0; pointer-events: none; }
+.glass { background: rgba(17, 17, 17, .62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+         border: 1px solid rgba(255, 255, 255, .12); }
+.w-top { position: absolute; top: calc(8px + var(--safe-top)); left: 10px; right: 10px; display: flex;
+         align-items: center; gap: 8px; }
+.icon-btn { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; flex: none; color: #fff; }
+.icon-btn svg { width: 22px; height: 22px; }
+.icon-btn.off { color: rgba(255, 255, 255, .45); }
+.w-top .seg { flex: 1; max-width: 260px; margin: 0 auto; background: rgba(17, 17, 17, .62);
+              border: 1px solid rgba(255, 255, 255, .12); }
+.w-top .seg button { color: rgba(255, 255, 255, .75); }
+.w-top .seg button.on { background: #fff; color: #111; }
+
+.w-count { position: absolute; top: calc(62px + var(--safe-top)); left: 10px; border-radius: 18px;
+           padding: 8px 14px 10px; min-width: 132px; }
+.w-count .num { font-size: 60px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+.w-count .num small { font-size: 24px; font-weight: 600; color: rgba(255, 255, 255, .7); margin-left: 4px; }
+.w-count .set { font-size: 13px; color: rgba(255, 255, 255, .8); margin-top: 2px; }
+.w-count .rep-dots { display: flex; gap: 4px; margin-top: 7px; flex-wrap: wrap; max-width: 150px; }
+.w-count .rep-dots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .55); }
+.w-count .rep-dots i.good { background: var(--good); border-color: var(--good); }
+.w-count .rep-dots i.bad { background: var(--bad); border-color: var(--bad); }
+.w-count.flash-good { box-shadow: 0 0 0 3px var(--good); }
+.w-count.flash-bad { box-shadow: 0 0 0 3px var(--bad); }
+
+.w-side { position: absolute; top: calc(62px + var(--safe-top)); right: 10px; display: flex; flex-direction: column;
+          align-items: flex-end; gap: 6px; }
+.phase { border-radius: 12px; padding: 5px 12px; font-size: 13px; font-weight: 700; }
+.phase.setup { background: #fff3d6; color: #8a5a00; }
+.phase.active, .phase.done { background: #e8f5e8; color: #0e7a0e; }
+.phase.countdown, .phase.rest { background: #f5f5f5; color: #111; }
+.score { border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
+
+.w-center { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); width: min(86vw, 340px);
+            display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.w-center > * { pointer-events: auto; }
+.panel { border-radius: 20px; padding: 16px 18px; width: 100%; }
+.panel h3 { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+.panel p { color: rgba(255, 255, 255, .82); font-size: 14.5px; }
+.panel .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.panel .btn { border-color: rgba(255, 255, 255, .35); color: #fff; }
+.panel .btn.primary { background: #fff; color: #111; border-color: #fff; }
+.checks { list-style: none; margin: 0; padding: 0; }
+.w-bottom > .panel { padding: 9px 14px; border-radius: 14px; }
+.checks li { display: flex; gap: 10px; align-items: center; padding: 3px 0; font-size: 14.5px; line-height: 1.25;
+             color: rgba(255, 255, 255, .78); }
+.checks li b { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center;
+               justify-content: center; font-size: 13px; background: rgba(255, 255, 255, .16); flex: none; }
+.checks li.ok { color: #fff; }
+.checks li.ok b { background: var(--good); }
+.checks li.next b { background: var(--warn); color: #111; }
+.count-ring { width: 150px; height: 150px; border-radius: 50%; display: flex; align-items: center;
+              justify-content: center; font-size: 96px; font-weight: 800; border: 4px solid var(--select); }
+.rest-clock { font-size: 68px; font-weight: 800; line-height: 1; text-align: center; margin: 4px 0 6px; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .25);
+           border-top-color: #fff; animation: spin .9s linear infinite; margin: 4px auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.w-bottom { position: absolute; left: 10px; right: 10px; bottom: calc(10px + var(--safe-bottom)); display: flex;
+            flex-direction: column; gap: 8px; }
+.depth { border-radius: 12px; padding: 7px 12px 9px; font-size: 12.5px; color: rgba(255, 255, 255, .85); }
+.depth .track { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .22); margin-top: 5px;
+                overflow: hidden; }
+.depth .fill { height: 100%; width: 0; border-radius: 3px; background: var(--warn); }
+.depth .fill.ok { background: var(--good); }
+.msg { border-radius: 14px; padding: 12px 14px 12px 18px; font-size: 19px; font-weight: 800; line-height: 1.25;
+       position: relative; overflow: hidden; }
+.msg::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: #fff; }
+.msg.ok::before { background: var(--good); }
+.msg.warn::before { background: var(--warn); }
+.msg.info::before { background: var(--select); }
+.w-controls { display: flex; gap: 8px; }
+.w-controls .btn { flex: 1; min-height: 50px; padding: 0 6px; font-size: 15px; color: #fff;
+                   background: rgba(17, 17, 17, .62); border-color: rgba(255, 255, 255, .22); }
+.w-controls .btn.primary { background: #fff; color: #111; border-color: #fff; }
+.perf { font-size: 10px; color: rgba(255, 255, 255, .55); pointer-events: none; text-shadow: 0 1px 2px #000;
+        padding-right: 4px; }
+.hide { display: none !important; }
+
+/* Хэвтээ байрлал: мэдээллийг хоёр тал руу шахаж, голд нь биеийг чөлөөтэй харуулна */
+@media (orientation: landscape) and (max-height: 520px) {
+  .w-count { top: calc(58px + var(--safe-top)); padding: 6px 12px 8px; }
+  .w-count .num { font-size: 46px; }
+  .w-bottom { left: auto; width: min(40vw, 330px); }
+  .msg { font-size: 17px; }
+  .w-center { top: 50%; width: min(52vw, 340px); }
+  .count-ring { width: 120px; height: 120px; font-size: 76px; }
+  .welcome { flex-direction: row; align-items: center; }
+  .welcome .pic { max-height: none; align-self: stretch; }
+  .welcome h1 { font-size: 30px; }
+  .choices { flex-direction: row; }
+  .choices .choice { flex: 1; }
+  .choice.exercise { flex-direction: column; align-items: flex-start; }
+}

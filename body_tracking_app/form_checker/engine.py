@@ -19,6 +19,7 @@ import numpy as np
 from .audio import SoundPlayer
 from .camera import camera_help, open_camera
 from .config import WorkoutConfig
+from .demo import DEMO_LIFT, DEMO_SCRIPTS, demo_frames
 from .exercises import create_analyzer
 from .pose import Pose
 from .recognition import ExerciseRecognizer
@@ -43,33 +44,15 @@ class EngineFrame:
 class DemoSource:
     """Камергүй үзүүлэн: синтетик хүний squat / push-up (зөв ба алдаатай давталт холилдсон).
 
-    Камер байхгүй үед эсвэл хичээл дээр аппын ажиллагааг үзүүлэхэд зориулсан.
+    Камер байхгүй үед эсвэл хичээл дээр аппын ажиллагааг үзүүлэхэд зориулсан. Хөдөлгөөний дараалал demo.py-д
+    (утасны хувилбартай хуваалцана).
     """
 
-    # (хамгийн бага өнцөг, алдаа[, дээд өнцөг[, хугацаа с]])
-    SCRIPTS = {
-        "squat": [(85, []), (82, []), (120, ["squat_shallow"]), (85, []), (82, ["squat_lean"]), (85, [], 175, 1.0),
-                  (84, ["squat_heels"]), (85, []), (85, ["squat_not_up"], 138), (84, [])],
-        "pushup": [(80, []), (80, ["pushup_sag"]), (82, []), (115, ["pushup_shallow"]), (80, []),
-                   (80, ["pushup_pike"]), (82, []), (80, [])],
-    }
-
-    LIFT = 0.12  # кадрын өндрийн хувь
+    SCRIPTS = DEMO_SCRIPTS
+    LIFT = DEMO_LIFT  # кадрын өндрийн хувь
 
     def __init__(self, exercise, width=1280, height=720, fps=30, seed=0):
-        from tools.synthetic import RepSpec, make_sequence  # зөвхөн демод хэрэгтэй
-
-        reps = []
-        for _ in range(4):
-            for item in self.SCRIPTS[exercise]:
-                top = item[2] if len(item) > 2 else 175.0
-                duration = item[3] if len(item) > 3 else 2.2   # 1.0 с = хэт хурдан (2.0-ийн сануулга)
-                reps.append(RepSpec(item[0], list(item[1]), duration=duration, pause=0.9, top_angle=top))
-        self.frames, _ = make_sequence(exercise, reps, view="side", noise_px=1.5, outlier_rate=0.0,
-                                       dropout_rate=0.0, seed=seed, start_pause=5.0)
-        # Синтетик газар кадрын 92%-д байдаг; доод мессежийн мөрөнд дарагдахгүйн тулд дээш зөөнө.
-        for _, pose in self.frames:
-            pose.img[:, 1] -= self.LIFT * pose.height
+        self.frames = demo_frames(exercise, seed=seed)
         self.width, self.height, self.fps = width, height, fps
         self.i = 0
         self.background = self._background(width, height)

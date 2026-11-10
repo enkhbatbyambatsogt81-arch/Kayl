@@ -1,0 +1,4 @@
+// «Ухаалаг дасгалжуулагч» Android хувилбар. Угсрах заавар: README.md
+plugins {
+    id "com.android.application" version "8.7.3" apply false
+}
