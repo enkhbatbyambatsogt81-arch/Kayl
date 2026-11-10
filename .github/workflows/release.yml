@@ -13,6 +13,10 @@ on:
         description: "Release гаргах tag (жишээ нь v2.3). Хоосон бол зөвхөн угсарна."
         required: false
         default: ""
+      android_only:
+        description: "Зөвхөн Android APK-г угсарч, эмулятор дээр шалгах (компьютерын хувилбаруудыг алгасна)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -20,6 +24,7 @@ permissions:
 jobs:
   build:
     name: ${{ matrix.label }}
+    if: ${{ !inputs.android_only }}
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.optional }}
     strategy:
@@ -27,7 +32,7 @@ jobs:
       matrix:
         include:
           - { os: windows-latest, label: windows-x64, optional: false }
-          - { os: macos-14, label: macos-apple-silicon, optional: false }
+          - { os: macos-15, label: macos-apple-silicon, optional: false }
           - { os: macos-15-intel, label: macos-intel, optional: true }
           - { os: ubuntu-22.04, label: linux-x64, optional: false }
     defaults:

@@ -11,6 +11,7 @@ export const state = {
   python: "idle",    // idle | loading | ready | error
   vision: "idle",
   error: null,
+  stage: { python: "", vision: "" },   // ачаалалтын аль алхам дээр байгаа (оношлогоонд)
   delegate: null,    // GPU | CPU
   info: null,        // mobile.info(): хувилбар, араг ясны холбоос
 };
@@ -36,15 +37,19 @@ export function loadPython() {
   emit();
   pythonPromise = (async () => {
     if (typeof WebAssembly !== "object") throw new Error("Энэ утасны WebView WebAssembly дэмждэггүй байна");
+    state.stage.python = "pyodide";
     const { loadPyodide } = await import(base + "vendor/pyodide/pyodide.mjs");
     const pyodide = await loadPyodide({ indexURL: base + "vendor/pyodide/" });
+    state.stage.python = "numpy";
     await pyodide.loadPackage("numpy");
+    state.stage.python = "app";
     const zip = await (await fetch(base + "py/app.zip")).arrayBuffer();
     pyodide.unpackArchive(zip, "zip", { extractDir: "/home/pyodide/app" });
     pyodide.runPython('import sys\nsys.path.insert(0, "/home/pyodide/app")');
     mobile = pyodide.pyimport("form_checker.mobile");
     state.info = JSON.parse(mobile.info());
     state.python = "ready";
+    state.stage.python = "ready";
     emit();
   })().catch((e) => {
     state.python = "error";
@@ -72,6 +77,7 @@ export function loadVision() {
   state.vision = "loading";
   emit();
   visionPromise = (async () => {
+    state.stage.vision = "bundle";
     visionApi = visionApi || await import(base + "vendor/mediapipe/vision_bundle.mjs");
     fileset = fileset || await visionApi.FilesetResolver.forVisionTasks(base + "vendor/mediapipe/wasm");
     // Эхлээд видео картаар (хурдан). Зарим утасны WebView-д WebGL дутуу байдаг: тэр үед процессороор ажиллуулна.
@@ -81,8 +87,10 @@ export function loadVision() {
     let failure = null;
     for (const delegate of order) {
       try {
+        state.stage.vision = delegate;
         landmarker = await createLandmarker(visionApi, fileset, delegate);
         state.delegate = delegate;
+        state.stage.vision = "ready";
         break;
       } catch (e) {
         console.warn(delegate + " delegate failed", e);

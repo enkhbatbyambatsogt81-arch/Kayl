@@ -399,7 +399,7 @@ if (QUERY.get("selftest") === "1") {
     const v = workout && workout.view;
     console.log("SELFTEST " + JSON.stringify({
       route: route().name, python: engine.state.python, vision: engine.state.vision, delegate: engine.state.delegate,
-      error: engine.state.error, phase: v ? v.phase : null, reps: v ? v.total_reps : null,
+      stage: engine.state.stage, error: engine.state.error, phase: v ? v.phase : null, reps: v ? v.total_reps : null,
       message: v ? v.message_key : null, state: workout ? workout.state : null,
       perf: document.querySelector(".perf")?.textContent || "", panel: document.querySelector(".w-center")?.innerText || "",
     }));
