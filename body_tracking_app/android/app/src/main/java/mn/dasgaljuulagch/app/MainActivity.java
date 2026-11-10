@@ -9,10 +9,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -137,6 +139,26 @@ public class MainActivity extends Activity {
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             return !HOST.equals(request.getUrl().getHost());   // аппаас гадагш шилжихгүй
         }
+
+        /**
+         * Хуудсыг зурдаг процесс унавал (жишээ нь видео картын драйверын алдаа, санах ой дутах) апп бүхэлдээ хаагдахын
+         * оронд дахин эхэлнэ. Хуудас дахин ачаалагдахдаа өмнөх оролдлого дуусаагүйг мэдээд процессор руу шилжинэ
+         * (engine.js).
+         */
+        @Override
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+            if (view == webView) {
+                ViewGroup parent = (ViewGroup) webView.getParent();
+                if (parent != null) {
+                    parent.removeView(webView);
+                }
+                webView.destroy();
+                webView = null;
+                pendingCamera = null;
+                recreate();
+            }
+            return true;
+        }
     }
 
     private static String mimeOf(String path) {
@@ -232,7 +254,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
+        if (webView != null && webView.canGoBack()) {
             webView.goBack();     // хуудас бүр хаягийн # хэсгээр ялгагддаг тул өмнөх хуудас руу буцна
         } else {
             super.onBackPressed();
@@ -241,14 +263,18 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
-        webView.onPause();        // хуудас далд орсныг мэдээд дасгалыг зогсоож, камерыг чөлөөлнө
+        if (webView != null) {
+            webView.onPause();    // хуудас далд орсныг мэдээд дасгалыг зогсоож, камерыг чөлөөлнө
+        }
         super.onPause();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        webView.onResume();
+        if (webView != null) {
+            webView.onResume();
+        }
     }
 
     @Override
@@ -257,7 +283,10 @@ public class MainActivity extends Activity {
             pendingCamera.deny();
             pendingCamera = null;
         }
-        webView.destroy();
+        if (webView != null) {
+            webView.destroy();
+            webView = null;
+        }
         super.onDestroy();
     }
 }

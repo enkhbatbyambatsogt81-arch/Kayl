@@ -135,8 +135,9 @@ function settingsPage() {
         ${toggle("mirror", s.mirror)}</div>
       <div class="row"><div class="name">Дуут дохио<small>Тоолол, зөв / алдаатай давталт, сет дуусах</small></div>
         ${toggle("sound", s.sound)}</div>
-      <div class="row col ${camOff}"><div class="name">Тооцоолол<small>Авто: видео картаар (хурдан). Араг яс буруу
-        зурагдах эсвэл гацах үед «Процессор»-ыг сонгоно</small></div>
+      <div class="row col ${camOff}"><div class="name">Тооцоолол<small>${engine.state.gpuFailed
+        ? "Өмнөх удаа видео картаар ажиллаж чадаагүй тул «Процессор» руу шилжсэн."
+        : "Авто: видео картаар (хурдан). Араг яс буруу зурагдах эсвэл гацах үед «Процессор»-ыг сонгоно"}</small></div>
         ${seg("compute", s.compute, [["auto", "Авто"], ["cpu", "Процессор"]])}</div>
     </div></div>
     <div class="footer"><button class="btn primary big" data-act="workout">Эхлэх ${ICONS.start}</button></div>

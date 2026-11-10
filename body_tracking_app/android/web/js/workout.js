@@ -77,6 +77,7 @@ export function mountWorkout(root, { onExit }) {
   let t0 = 0, pausedAt = 0, pausedTotal = 0, doneTimer = null, wakeLock = null;
   let view = null, lastPoints = null, panelKey = "", flashTimer = null;
   let frames = 0, poseMsSum = 0, perfAt = 0;
+  let gpuFrames = 0, gpuMs = 0;   // видео картаар эхний кадруудын хурд (хэт удаан бол процессор руу)
   const shown = {};   // дэлгэцэнд байгаа утгууд: өөрчлөгдсөн үед л DOM-д бичнэ
   const wide = matchMedia("(orientation: landscape) and (max-height: 520px)");
   let inset = null;   // мэдээллийн самбарууд дэлгэцийн захаас хэр зай эзэлж буй (CSS пиксел)
@@ -125,7 +126,7 @@ export function mountWorkout(root, { onExit }) {
     updateSoundButton();
     showExercise(settings.exercise);
     panel("loading", `<div class="panel glass"><div class="spinner"></div>
-      <p style="text-align:center">Ачаалж байна… Анх нээхэд хэдэн секунд болно.</p></div>`);
+      <p style="text-align:center">Ачаалж байна… Хэдэн секунд болно.</p></div>`);
     try {
       await Promise.all([engine.loadPython(), demo ? null : engine.loadVision()]);
     } catch {
@@ -173,10 +174,13 @@ export function mountWorkout(root, { onExit }) {
   }
 
   // ---- Кадр бүрт --------------------------------------------------------------------------------------------------
+  let loop = 0;   // schedule() бүр шинэ дугаартай: зогсоод дахин эхлэхэд хуучин дуудлага давхар ажиллахгүй
   function schedule() {
     if (!alive || !running) return;
-    if (!demo && video.requestVideoFrameCallback) video.requestVideoFrameCallback(tick);
-    else requestAnimationFrame(tick);
+    const id = ++loop;
+    const next = () => { if (id === loop) tick(); };
+    if (!demo && video.requestVideoFrameCallback) video.requestVideoFrameCallback(next);
+    else requestAnimationFrame(next);
   }
 
   function tick() {
@@ -222,8 +226,15 @@ export function mountWorkout(root, { onExit }) {
       if (!w || !h) return;
       const t1 = now();
       lastPoints = engine.detect(video, w, h);
-      poseMsSum += now() - t1;
+      const ms = now() - t1;
+      poseMsSum += ms;
       view = engine.py.frame(lastPoints, w, h, t);
+      // Зарим утсанд WebView видео картыг програмаар дуурайдаг: кадр бүр 0.2 секундээс удаан бол процессор нь хурдан
+      if (engine.state.delegate === "GPU" && gpuFrames < 14) {
+        gpuFrames += 1;
+        if (gpuFrames > 2) gpuMs += ms;   // эхний хоёр кадр бэлтгэл ажилтай тул тооцохгүй
+        if (gpuFrames === 14 && gpuMs / 12 > 200) setTimeout(() => recover(new Error("GPU удаан")), 0);
+      }
     }
     frames += 1;
     draw();

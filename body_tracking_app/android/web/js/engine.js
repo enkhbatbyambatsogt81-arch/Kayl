@@ -3,7 +3,7 @@
 // Давталт тоолох, техник шалгах код нь компьютерын хувилбарынхтай яг ижил Python файлууд (py/app.zip):
 // form_checker/mobile.py-ийн функцуудыг эндээс дуудна. Бүх оролт / гаралт JSON мөр.
 
-import { settings } from "./store.js";
+import { saveSettings, settings } from "./store.js";
 
 const base = new URL("../", import.meta.url).href;
 
@@ -14,6 +14,7 @@ export const state = {
   stage: { python: "", vision: "" },   // ачаалалтын аль алхам дээр байгаа (оношлогоонд)
   delegate: null,    // GPU | CPU
   info: null,        // mobile.info(): хувилбар, араг ясны холбоос
+  gpuFailed: false,  // өмнөх удаа видео картаар гацсан тул процессор руу шилжсэн
 };
 
 const listeners = new Set();
@@ -30,6 +31,17 @@ let landmarker = null;
 let pythonPromise = null;
 let visionPromise = null;
 let visionApi = null, fileset = null;
+
+// Видео картын хамгаалалт. Зарим утасны WebView видео картаар илрүүлэгч үүсгэх / эхний кадрыг боловсруулах үед гацаж
+// эсвэл унаж болно. Тэр эрсдэлтэй алхмын өмнө тэмдэг тавьж, амжилттай дуусмагц арилгана. Дараагийн удаа апп нээгдэхэд
+// тэмдэг хэвээр байвал өмнөх оролдлого дуусаагүй гэсэн үг: процессор руу өөрөө шилжинэ.
+const GPU_FLAG = "ud.gpu.pending";
+const flag = {
+  get: () => { try { return localStorage.getItem(GPU_FLAG) === "1"; } catch { return false; } },
+  set: () => { try { localStorage.setItem(GPU_FLAG, "1"); } catch { /* хадгалах боломжгүй */ } },
+  clear: () => { try { localStorage.removeItem(GPU_FLAG); } catch { /* хадгалах боломжгүй */ } },
+};
+let firstGpuFrame = false;   // видео картаар эхний кадрыг хараахан боловсруулаагүй
 
 export function loadPython() {
   if (pythonPromise) return pythonPromise;
@@ -82,17 +94,27 @@ export function loadVision() {
     fileset = fileset || await visionApi.FilesetResolver.forVisionTasks(base + "vendor/mediapipe/wasm");
     // Эхлээд видео картаар (хурдан). Зарим утасны WebView-д WebGL дутуу байдаг: тэр үед процессороор ажиллуулна.
     // Тохиргоо → Тооцоолол → Процессор (эсвэл туршилтад ?delegate=cpu): шууд процессороор.
+    if (settings.compute !== "cpu" && flag.get()) {   // өмнөх удаа видео картаар гацсан / унасан
+      settings.compute = "cpu";
+      saveSettings();
+      flag.clear();
+      state.gpuFailed = true;
+    }
     const cpuOnly = settings.compute === "cpu" || new URLSearchParams(location.search).get("delegate") === "cpu";
     const order = cpuOnly ? ["CPU"] : ["GPU", "CPU"];
     let failure = null;
     for (const delegate of order) {
       try {
         state.stage.vision = delegate;
+        if (delegate === "GPU") flag.set();
         landmarker = await createLandmarker(visionApi, fileset, delegate);
+        flag.clear();
+        firstGpuFrame = delegate === "GPU";
         state.delegate = delegate;
         state.stage.vision = "ready";
         break;
       } catch (e) {
+        flag.clear();   // алдаа буцаасан бол гацаагүй: доор процессороор үргэлжлүүлнэ
         console.warn(delegate + " delegate failed", e);
         failure = e;
       }
@@ -117,6 +139,8 @@ export function resetVision() {
   visionPromise = null;
   state.vision = "idle";
   state.delegate = null;
+  state.gpuFailed = false;
+  flag.clear();
 }
 
 /** Видео картаар илрүүлэх явцад алдаа гарвал процессор руу шилжинэ. Шилжсэн бол true. */
@@ -146,7 +170,12 @@ let lastStamp = 0;
 export function detect(video, width, height) {
   const stamp = Math.max(performance.now(), lastStamp + 1);   // VIDEO горим монотон өсөх хугацаа шаарддаг
   lastStamp = stamp;
+  if (firstGpuFrame) flag.set();
   const result = landmarker.detectForVideo(video, stamp);
+  if (firstGpuFrame) {
+    firstGpuFrame = false;
+    flag.clear();
+  }
   const lms = result.landmarks && result.landmarks[0];
   if (!lms || lms.length < 33) return null;
   for (let i = 0; i < 33; i++) {
