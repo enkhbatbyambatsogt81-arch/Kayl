@@ -38,6 +38,7 @@
 | macOS, Intel | `…-macos-intel.zip` (байхгүй бол доорх эх кодын аргаар) | Apple Silicon-той адил |
 | Linux x86_64 | `…-linux-x64.tar.gz` | `tar -xzf` хийгээд хавтас доторх `UkhaalagDasgaljuulagch` (OpenGL: `sudo apt install libegl1 libgl1`) |
 | **Android утас** (7.0+) | `…-android.apk` | Утсаараа татаж нээгээд **Суулгах**. «Энэ эх сурвалжаас хориглосон» гэвэл **Тохиргоо → Энэ эх сурвалжаас зөвшөөрөх**. Дэлгэрэнгүй: [android/README.md](android/README.md) |
+| **iPhone / iPad** (iOS 16.4+) | — (суулгах файлгүй) | Safari-аар <https://enkhbatbyambatsogt81-arch.github.io/Kayl/> нээгээд **Хуваалцах → Нүүр дэлгэцэнд нэмэх** (Add to Home Screen). Дэлгэрэнгүй: [android/README.md → iPhone](android/README.md#iphone) |
 
 Апп тоон гарын үсэггүй тул систем анх нээхэд нэг удаа анхааруулга өгдөг; дараа нь шууд нээгдэнэ. Задалсны
 дараа ~470 МБ эзэлнэ. Тохиргоо ба дасгалын түүх хэрэглэгчийн хавтсанд хадгалагдана (Windows:

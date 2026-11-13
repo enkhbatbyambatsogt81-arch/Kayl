@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#ffffff">
   <title>Ухаалаг дасгалжуулагч</title>
+  <!-- Вэб / iPhone хувилбар: Safari → Хуваалцах → «Нүүр дэлгэцэнд нэмэх» хийхэд тусдаа апп шиг нээгдэнэ -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Дасгалжуулагч">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -13,13 +22,19 @@
     <nav id="tabs"></nav>
   </div>
   <script>
-    // Хуудас ачаалагдаагүй бол (хэт хуучин WebView) хоосон цагаан дэлгэцийн оронд тайлбар харуулна
+    // Хуудас ачаалагдаагүй бол (хэт хуучин WebView / Safari) хоосон цагаан дэлгэцийн оронд тайлбар харуулна
     window.addEventListener("error", function (e) { window.__bootError = (e && e.message) || "алдаа"; });
     setTimeout(function () {
       var screen = document.getElementById("screen");
       if (screen && !screen.firstChild) {
+        var ios = !window.AndroidApp && (/iPhone|iPad|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+        var hint = window.AndroidApp
+          ? "Play Store-оос «Android System WebView» болон «Chrome»-оо шинэчлээд аппаа дахин нээнэ үү."
+          : ios ? "iPhone-оо iOS 16.4 буюу түүнээс шинэ хувилбар руу шинэчлээд дахин нээнэ үү."
+          : "Хөтчөө (Chrome, Safari, Edge, Firefox) шинэчлээд хуудсаа дахин нээнэ үү.";
         screen.innerHTML = '<div style="padding:48px 24px;font:16px/1.5 sans-serif"><b>Апп ачаалагдсангүй</b>' +
-          '<p>Play Store-оос «Android System WebView» болон «Chrome»-оо шинэчлээд аппаа дахин нээнэ үү.</p>' +
+          '<p>' + hint + '</p>' +
           '<p style="color:#888;font-size:13px">' + (window.__bootError || "") + "</p></div>";
       }
     }, 6000);

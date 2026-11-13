@@ -1,4 +1,5 @@
-"""Апп эхлүүлэгчийн дүрсийг (app/src/main/res/mipmap-*) зурна: хар дэвсгэр дээр суулт хийж буй цагаан дүрс.
+"""Апп эхлүүлэгчийн дүрсийг (app/src/main/res/mipmap-*) болон вэб / iPhone хувилбарын дүрсийг (web/icons/) зурна:
+хар дэвсгэр дээр суулт хийж буй цагаан дүрс.
 
 Компьютерын хувилбарын дүрстэй ижил санаа. Дүрсийг өөрчлөх бол энд засаад дахин ажиллуулна (Pillow хэрэгтэй):
     python make_icons.py
@@ -9,6 +10,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 RES = Path(__file__).parent / "app/src/main/res"
+WEB = Path(__file__).parent / "web/icons"
 BLACK = (17, 17, 17, 255)
 WHITE = (255, 255, 255, 255)
 FLOOR = (255, 255, 255, 110)
@@ -65,6 +67,19 @@ def main():
         fg = Image.new("RGBA", (full, full), (0, 0, 0, 0))
         fg.alpha_composite(figure(box), ((full - box) // 2, (full - box) // 2))
         fg.save(folder / "ic_launcher_foreground.png", optimize=True)
+    web_icons()
+
+
+def web_icons():
+    """Вэб хувилбар (iPhone-ы «Нүүр дэлгэцэнд нэмэх», manifest.webmanifest). iOS булангуудыг өөрөө дугуйрдаг тул
+    apple-touch-icon бүтэн дөрвөлжин хар дэвсгэртэй. maskable: Android-ын дүрсний хэлбэрт таслагдах тул дүрс жижиг."""
+    WEB.mkdir(parents=True, exist_ok=True)
+    for fname, size, part in (("apple-touch-icon.png", 180, 0.70), ("icon-192.png", 192, 0.70),
+                              ("icon-512.png", 512, 0.70), ("icon-maskable-512.png", 512, 0.56)):
+        img = Image.new("RGBA", (size, size), BLACK)
+        box = round(size * part)
+        img.alpha_composite(figure(box), ((size - box) // 2, (size - box) // 2))
+        img.convert("RGB").save(WEB / fname, optimize=True)
 
 
 if __name__ == "__main__":
