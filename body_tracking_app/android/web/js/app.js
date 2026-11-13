@@ -1,9 +1,11 @@
 // Ухаалаг дасгалжуулагч — утасны хувилбарын үндсэн хэсэг: хуудсууд ба тэдгээрийн хооронд шилжих.
 // Хуудас бүр хаягийн # хэсгээр ялгагдана, тиймээс Android-ын «Буцах» товч өмнөх хуудас руу аваачна.
+// Ижил код Android апп (APK), iPhone (Safari / нүүр дэлгэцэнд нэмсэн вэб апп) болон хөтөч дээр ажиллана (platform.js).
 
 import * as audio from "./audio.js";
 import * as engine from "./engine.js";
 import { FIGURES, ICONS } from "./figures.js";
+import * as platform from "./platform.js";
 import { EXERCISES, LEVELS, QUERY, applyLevel, clearHistory, loadHistory, saveSettings, settings } from "./store.js";
 import { mountWorkout } from "./workout.js";
 
@@ -141,7 +143,7 @@ function settingsPage() {
         ${seg("compute", s.compute, [["auto", "Авто"], ["cpu", "Процессор"]])}</div>
     </div></div>
     <div class="footer"><button class="btn primary big" data-act="workout">Эхлэх ${ICONS.start}</button></div>
-    <p class="version">Ухаалаг дасгалжуулагч · v${engine.state.info ? engine.state.info.version : "…"} · Android</p>`;
+    <p class="version">Ухаалаг дасгалжуулагч · v${engine.state.info ? engine.state.info.version : "…"} · ${platform.NAME}</p>`;
 }
 
 function summaryCard(s) {
@@ -225,11 +227,16 @@ const HELP = [
     "Түр зогсоох, Алгасах (тоолол эсвэл амралтыг), Дуусгах (дүнгээ харах).",
   ]],
   ["Асуудал гарвал", [
-    "Камер нээгдэхгүй бол: утасны Тохиргоо → Апп → Ухаалаг дасгалжуулагч → Зөвшөөрөл → Камер-ыг зөвшөөрнө.",
+    "Камер нээгдэхгүй бол: " + platform.CAMERA_PERMISSION,
+    ...(platform.IOS ? ["Дуу гарахгүй бол iPhone-ы хажуугийн чимээгүй горимын (Silent / Ring) товчийг шалгаад дууг нь " +
+      "чангалаарай: чимээгүй горимд вэб аппын дуут дохио гардаггүй."] : []),
     "Тоолол эхлэхгүй бол шалгах жагсаалтын шар «›» мөрийг харна (жишээ нь «Бүтэн бие кадрт багтсан» бол холдоно).",
     "Удаан ажиллаж байвал бусад аппыг хааж, утсаа цэнэглэгчээс салгалгүй ашиглана. Дэлгэцийн баруун дээд буланд хурд (FPS) харагдана.",
     "Камергүйгээр үзэх бол Тохиргоо → Эх үүсвэр → Демо.",
-    "Апп интернэтгүй ажиллана: видео утаснаас гардаггүй, хаашаа ч илгээгддэггүй.",
+    platform.ANDROID_APP
+      ? "Апп интернэтгүй ажиллана: видео утаснаас гардаггүй, хаашаа ч илгээгддэггүй."
+      : "Видео утаснаас гардаггүй, хаашаа ч илгээгддэггүй: бүх шинжилгээ утсан дээрээ хийгдэнэ. Анх нээхэд апп (~38 MB) " +
+        "татагдаж утсанд хадгалагдана, дараа нь интернэтгүй ажиллана.",
   ]],
 ];
 
@@ -392,6 +399,7 @@ engine.onChange(() => {
 
 applyTheme();
 render();
+platform.registerServiceWorker(() => route().name === "workout");
 
 // Өөрийгөө шалгах горим (?selftest=1): төлөвөө секунд тутам консолд бичнэ. Android дээр консол logcat-д гардаг тул
 // GitHub Actions эмулятор дээр апп үнэхээр ачаалагдаж, давталт тоолж буйг эндээс шалгана.

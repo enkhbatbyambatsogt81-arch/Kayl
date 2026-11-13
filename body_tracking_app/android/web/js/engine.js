@@ -3,6 +3,7 @@
 // Давталт тоолох, техник шалгах код нь компьютерын хувилбарынхтай яг ижил Python файлууд (py/app.zip):
 // form_checker/mobile.py-ийн функцуудыг эндээс дуудна. Бүх оролт / гаралт JSON мөр.
 
+import { CAMERA_PERMISSION } from "./platform.js";
 import { saveSettings, settings } from "./store.js";
 
 const base = new URL("../", import.meta.url).href;
@@ -48,7 +49,7 @@ export function loadPython() {
   state.python = "loading";
   emit();
   pythonPromise = (async () => {
-    if (typeof WebAssembly !== "object") throw new Error("Энэ утасны WebView WebAssembly дэмждэггүй байна");
+    if (typeof WebAssembly !== "object") throw new Error("Энэ хөтөч / WebView WebAssembly дэмждэггүй байна");
     state.stage.python = "pyodide";
     const { loadPyodide } = await import(base + "vendor/pyodide/pyodide.mjs");
     const pyodide = await loadPyodide({ indexURL: base + "vendor/pyodide/" });
@@ -192,8 +193,7 @@ export function detect(video, width, height) {
 let stream = null;
 
 export const CAMERA_ERRORS = {
-  NotAllowedError: "Камер ашиглах зөвшөөрөл өгөөгүй байна. Утасны Тохиргоо → Апп → Ухаалаг дасгалжуулагч → " +
-                   "Зөвшөөрөл → Камер-ыг зөвшөөрөөд дахин оролдоно уу.",
+  NotAllowedError: "Камер ашиглах зөвшөөрөл өгөөгүй байна. Зөвшөөрөхийн тулд " + CAMERA_PERMISSION,
   NotFoundError: "Камер олдсонгүй.",
   NotReadableError: "Камерыг өөр апп ашиглаж байна. Тэр аппыг хаагаад дахин оролдоно уу.",
   OverconstrainedError: "Сонгосон камер энэ утсанд алга. Нөгөө камерыг сонгоно уу.",
@@ -208,9 +208,10 @@ export async function openCamera(video, facing) {
     audio: false,
     video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
   });
-  video.srcObject = stream;
   video.muted = true;
-  video.playsInline = true;
+  video.playsInline = true;   // iPhone: видеог бүтэн дэлгэцийн тоглуулагчаар биш, хуудсан дотор тоглуулна
+  video.setAttribute("playsinline", "");
+  video.srcObject = stream;
   await video.play();
   return stream;
 }

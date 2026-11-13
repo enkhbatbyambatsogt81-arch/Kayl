@@ -5,7 +5,7 @@
     python build_web.py    # дараа нь: gradle assembleRelease
 
 Юу хуулагдах вэ:
-  web/                          интерфейс (HTML, CSS, JavaScript)
+  web/                          интерфейс (HTML, CSS, JavaScript), вэб / iPhone хувилбарын manifest, дүрс, sw.js
   vendor/pyodide/               Python-ийг WebAssembly дээр ажиллуулагч + numpy
   vendor/mediapipe/             MediaPipe Tasks Vision (биеийн цэг илрүүлэгч)
   models/pose_landmarker_lite.task
@@ -80,6 +80,28 @@ def app_version():
     sys.exit("form_checker/__init__.py-д __version__ алга")
 
 
+def write_service_worker(out, version):
+    """sw.js (вэб / iPhone хувилбарын service worker)-д хувилбар ба суулгахдаа хадгалах жижиг файлуудын жагсаалтыг бичнэ.
+    Хувилбарт файлуудын хэшийг нэмсэн тул аль нэг файл өөрчлөгдөхөд утсан дээрх кэш шинэчлэгдэнэ."""
+    web = os.path.join(HERE, "web")
+    shell = sorted(os.path.relpath(os.path.join(r, n), web).replace(os.sep, "/")
+                   for r, _, names in os.walk(web) for n in names if n != "sw.js")
+    shell.append("build.json")
+    h = hashlib.sha256()
+    for r, dirs, names in os.walk(out):
+        dirs.sort()
+        for n in sorted(names):
+            if n != "sw.js":
+                h.update(os.path.relpath(os.path.join(r, n), out).encode())
+                h.update(sha256(os.path.join(r, n)).encode())
+    path = os.path.join(out, "sw.js")
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    text = text.replace("__VERSION__", f"{version}-{h.hexdigest()[:10]}").replace("__SHELL__", json.dumps(shell))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=OUT, help="гаралтын хавтас")
@@ -112,6 +134,7 @@ def main():
     version = app_version()
     with open(os.path.join(out, "build.json"), "w", encoding="utf-8") as f:
         json.dump({"version": version}, f)
+    write_service_worker(out, version)
     size = sum(os.path.getsize(os.path.join(r, n)) for r, _, names in os.walk(out) for n in names)
     print(f"OK: v{version} -> {out} ({size / 1e6:.1f} MB)")
 

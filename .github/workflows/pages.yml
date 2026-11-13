@@ -1,0 +1,64 @@
+# Утасны хувилбарын вэб хэсгийг GitHub Pages-д байршуулна: iPhone (Safari) болон бусад утас, компьютер хөтчөөсөө
+# https://<хэрэглэгч>.github.io/<репо>/ хаягаар нээнэ (body_tracking_app/android/README.md → «iPhone»).
+# main руу push хийхэд (вэб хэсэг эсвэл шалгах логик өөрчлөгдсөн бол) эсвэл Actions табаас гараар ажиллана.
+# Анх нэг удаа: репогийн Settings → Pages → Build and deployment → Source: «GitHub Actions».
+name: Pages (iPhone / web)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "body_tracking_app/android/web/**"
+      - "body_tracking_app/android/build_web.py"
+      - "body_tracking_app/android/package*.json"
+      - "body_tracking_app/form_checker/**"
+      - "body_tracking_app/tools/synthetic.py"
+      - "body_tracking_app/models/pose_landmarker_lite.task"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: body_tracking_app/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Вэб хэсгийг угсрах (интерфейс, Pyodide, MediaPipe, Python логик)
+        run: |
+          npm ci
+          python build_web.py --out "$RUNNER_TEMP/site"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

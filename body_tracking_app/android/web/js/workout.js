@@ -5,6 +5,7 @@ import { drawDemoBackground, drawFrameBorder, drawReadyRing, drawSkeleton, drawV
          placeRect } from "./draw.js";
 import * as engine from "./engine.js";
 import { ICONS } from "./figures.js";
+import * as platform from "./platform.js";
 import { EXERCISES, addHistory, saveSettings, settings } from "./store.js";
 
 const PHASES = { setup: "Бэлтгэл", countdown: "Эхлэх гэж байна", active: "Дасгал", rest: "Амралт", done: "Дууссан" };
@@ -142,10 +143,17 @@ export function mountWorkout(root, { onExit }) {
     t0 = now();
     started = running = true;
     panel("", "");
-    try {
-      wakeLock = await navigator.wakeLock?.request("screen");   // дасгалын үед дэлгэц унтрахгүй
-    } catch { /* зөвшөөрөгдөөгүй бол Android талын FLAG_KEEP_SCREEN_ON хангалттай */ }
+    keepAwake();
     schedule();
+  }
+
+  /** Дасгалын үед дэлгэц унтрахгүй. Апп ард гарахад хөтөч өөрөө суллана: буцаж ирэхэд дахин авна (iPhone-д ч мөн). */
+  async function keepAwake() {
+    try {
+      if (alive && !document.hidden && !(wakeLock && !wakeLock.released)) {
+        wakeLock = await navigator.wakeLock?.request("screen");
+      }
+    } catch { /* зөвшөөрөгдөөгүй бол Android талын FLAG_KEEP_SCREEN_ON хангалттай */ }
   }
 
   async function startCamera() {
@@ -164,8 +172,7 @@ export function mountWorkout(root, { onExit }) {
     ref.msg.className = "msg glass warn";
     panel("error:" + message, `<div class="panel glass"><h3>${camera ? "Камер нээгдсэнгүй" : "Алдаа гарлаа"}</h3>
       <p>${esc(message)}</p>
-      ${camera ? "" : `<p style="margin-top:8px;font-size:13px">Давтагдвал Play Store-оос «Android System WebView»
-        болон «Chrome»-оо шинэчлээд дахин оролдоно уу.</p>`}
+      ${camera ? "" : `<p style="margin-top:8px;font-size:13px">${platform.UPDATE_HINT}</p>`}
       <div class="actions">
         <button class="btn primary" data-act="retry">Дахин оролдох</button>
         ${camera ? '<button class="btn" data-act="demo">Демо үзэх (камергүй)</button>' : ""}
@@ -471,6 +478,7 @@ export function mountWorkout(root, { onExit }) {
   }
 
   async function onVisibility() {
+    if (!document.hidden && started) keepAwake();
     if (!alive || !running || demo) {
       if (alive && running && document.hidden) setPaused(true);
       return;
