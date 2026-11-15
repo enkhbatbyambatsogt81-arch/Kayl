@@ -2,6 +2,7 @@
 
 const SETTINGS_KEY = "ud.settings.v1";
 const HISTORY_KEY = "ud.history.v1";
+const TERMS_KEY = "ud.terms.v1";
 
 export const DEFAULTS = {
   level: "normal", exercise: "squat", reps: 10, sets: 3, rest: 60, free_mode: false, auto_detect: false,
@@ -86,4 +87,29 @@ export function addHistory(items, seconds) {
 
 export function clearHistory() {
   write(HISTORY_KEY, []);
+}
+
+// ---- Үйлчилгээний нөхцөл ба нууцлал (terms.js) -----------------------------------------------------------------------
+// {version, at}: аль хувилбарыг хэзээ зөвшөөрсөн. localStorage ажиллахгүй үед ч (хувийн горим) энэ удаагийн нээлтэд
+// санахын тулд санах ойд давхар барина.
+let terms = read(TERMS_KEY, null);
+
+/** Нөхцөлийн энэ хувилбарыг зөвшөөрсөн бол {version, at}, үгүй бол null. */
+export function termsAccepted(version) {
+  return terms && typeof terms === "object" && terms.version === version ? terms : null;
+}
+
+export function acceptTerms(version) {
+  terms = { version, at: new Date().toISOString() };
+  write(TERMS_KEY, terms);
+}
+
+/** Аппын утсанд хадгалсан бүх зүйлийг (тохиргоо, түүх, зөвшөөрөл) устгана. Дуудсаны дараа хуудсыг дахин ачаална. */
+export function wipeAll() {
+  terms = null;
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+    for (const key of keys) if (key && key.startsWith("ud.")) localStorage.removeItem(key);
+  } catch { /* хадгалах сан байхгүй: устгах зүйл ч алга */ }
 }
