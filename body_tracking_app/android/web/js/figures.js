@@ -40,5 +40,10 @@ export const ICONS = {
   sun: icon('<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>' +
             [0, 45, 90, 135, 180, 225, 270, 315].map((a) =>
               `<line x1="12" y1="2.5" x2="12" y2="5" transform="rotate(${a} 12 12)"/>`).join(""), 2.2),
+  camera: icon('<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8.5 7l1.4-2.5h4.2L15.5 7"/>' +
+               '<circle cx="12" cy="13.5" r="3.4"/>'),
+  lock: icon('<rect x="5" y="11" width="14" height="9.5" rx="2.2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  heart: icon('<path d="M12 20s-7.5-4.6-7.5-10.2A4.1 4.1 0 0 1 12 7.4a4.1 4.1 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z"/>'),
+  check: icon('<polyline points="5,12.5 10,17.5 19,7"/>', 3),
   moon: icon('<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" fill="currentColor" stroke="none"/>'),
 };

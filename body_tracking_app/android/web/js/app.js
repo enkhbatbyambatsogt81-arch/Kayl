@@ -6,7 +6,9 @@ import * as audio from "./audio.js";
 import * as engine from "./engine.js";
 import { FIGURES, ICONS } from "./figures.js";
 import * as platform from "./platform.js";
-import { EXERCISES, LEVELS, QUERY, applyLevel, clearHistory, loadHistory, saveSettings, settings } from "./store.js";
+import { EXERCISES, LEVELS, QUERY, acceptTerms, applyLevel, clearHistory, loadHistory, saveSettings, settings,
+         termsAccepted, wipeAll } from "./store.js";
+import { HIGHLIGHTS, SECTIONS, TERMS_UPDATED, TERMS_VERSION } from "./terms.js";
 import { mountWorkout } from "./workout.js";
 
 const screen = document.getElementById("screen");
@@ -19,6 +21,14 @@ let workout = null;       // идэвхтэй дасгалын дэлгэц
 let lastResult = null;    // {items, record}: дүнгийн хуудсанд
 let lastRoute = { name: "", step: "" };
 let confirmClear = false;
+let agreed = false;       // зөвшөөрлийн хуудасны чагт (хараахан «Үргэлжлүүлэх» дараагүй)
+let confirmWipe = false;
+let moves = 0;            // апп дотор хэдэн удаа хуудас сольсон: «Буцах» товч хаашаа буцахыг шийдэхэд
+
+// Туршилтын горим (?selftest=1, ci_emulator_test.sh) зөвшөөрлийн хуудсыг алгасна: эмулятор товч дарж чадахгүй
+const SELFTEST = QUERY.get("selftest") === "1";
+/** Нөхцөлийн одоогийн хувилбарыг хараахан зөвшөөрөөгүй: аль ч хуудасны оронд зөвшөөрлийн хуудсыг харуулна. */
+const needConsent = () => !SELFTEST && !termsAccepted(TERMS_VERSION);
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -32,13 +42,13 @@ function applyTheme() {
 /** Android-ын дээд / доод самбарын өнгө: дасгалын дэлгэц (хар) ба харанхуй горимд бараан. */
 function syncBars() {
   try {
-    window.AndroidApp?.setTheme(settings.theme === "dark" || route().name === "workout");
+    window.AndroidApp?.setTheme(settings.theme === "dark" || (route().name === "workout" && !needConsent()));
   } catch { /* хөтөч дээр ажиллаж байгаа үед байхгүй */ }
 }
 
 function route() {
   const [name = "start", step = ""] = location.hash.replace(/^#\/?/, "").split("/");
-  const known = ["start", "workout", "summary", "settings", "history", "help"];
+  const known = ["start", "workout", "summary", "settings", "history", "help", "terms"];
   return { name: known.includes(name) ? name : "start", step: STEPS.includes(step) ? step : "welcome" };
 }
 
@@ -244,13 +254,65 @@ function helpPage() {
   return `<div class="topbar"><div><h2 class="title">Заавар</h2></div><div class="grow"></div>${themeToggle()}</div>
     ${HELP.map(([title, lines]) => `<div class="card help" style="margin-top:12px"><h3>${title}</h3>
       <ul>${lines.map((l) => `<li>${l}</li>`).join("")}</ul></div>`).join("")}
+    <div class="card help" style="margin-top:12px"><h3>Нөхцөл ба нууцлал</h3>
+      <p>Камерын дүрс утаснаас гардаггүй. Апп ямар мэдээллийг утсанд хадгалдаг, хэрхэн устгахыг эндээс уншина.</p>
+      <button class="btn small" style="margin-top:10px" data-act="terms">Үйлчилгээний нөхцөл ба нууцлал
+        ${ICONS.next}</button></div>
     <p class="version">Шалгах логик нь компьютерын хувилбартай нэг код · MediaPipe Pose</p>`;
+}
+
+// ---- Үйлчилгээний нөхцөл ба нууцлал (текст нь terms.js-д) ---------------------------------------------------------
+const termsBody = () => `
+  <div class="points">${HIGHLIGHTS.map(([icon, title, text]) => `<div class="point">
+    <span class="ico inset">${icon}</span><div><b>${title}</b><p>${text}</p></div></div>`).join("")}</div>
+  <div class="legal">
+    <span class="label">БҮРЭН ЭХ</span>
+    ${SECTIONS.map(([title, lines]) => `<h3>${title}</h3>
+      <ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`).join("")}
+    <p class="updated">Сүүлд шинэчилсэн: ${TERMS_UPDATED}</p>
+  </div>`;
+
+/** Анх нээхэд (эсвэл нөхцөл өөрчлөгдсөний дараа): зөвшөөрөх хүртэл аппын бусад хуудас нээгдэхгүй. */
+function consentPage() {
+  return `<div class="topbar"><div class="brand">Ухаалаг дасгалжуулагч</div><div class="grow"></div>${themeToggle()}</div>
+    <div class="consent-scroll" data-scroll>
+      <div class="label">Эхлэхээс өмнө</div>
+      <h2 class="title" style="margin-top:6px">Үйлчилгээний нөхцөл ба нууцлал</h2>
+      <p class="sub">Апп камер ашигладаг тул таны мэдээлэлд хэрхэн ханддагийг эхлээд танилцуулъя. Доорх гурав нь гол
+        зүйл, бүрэн эх нь түүний доор.</p>
+      ${termsBody()}
+    </div>
+    <div class="consent-footer">
+      <button class="check ${agreed ? "on" : ""}" data-act="agree" role="checkbox" aria-checked="${agreed}">
+        <span class="box">${ICONS.check}</span>
+        <span>Би үйлчилгээний нөхцөл ба нууцлалын бодлогыг уншиж, зөвшөөрч байна</span></button>
+      <button class="btn primary big" data-act="accept" ${agreed ? "" : "disabled"}>Зөвшөөрч, үргэлжлүүлэх
+        ${ICONS.next}</button>
+    </div>`;
+}
+
+/** Заавар → «Нөхцөл ба нууцлал»: дахин унших, мэдээллээ устгах. */
+function termsPage() {
+  const accepted = termsAccepted(TERMS_VERSION);
+  const d = accepted ? new Date(accepted.at) : null;
+  const two = (n) => String(n).padStart(2, "0");
+  const when = d && !Number.isNaN(d.getTime())
+    ? `Та ${d.getFullYear()}.${two(d.getMonth() + 1)}.${two(d.getDate())}-нд зөвшөөрсөн.` : "";
+  return `<div class="topbar"><button class="btn ghost small" data-act="leaveTerms">${ICONS.back} Буцах</button>
+      <div class="grow"></div>${themeToggle()}</div>
+    <h2 class="title">Үйлчилгээний нөхцөл ба нууцлал</h2>
+    ${when ? `<p class="sub">${when}</p>` : ""}
+    ${termsBody()}
+    <div class="footer">
+      <p class="note">Тохиргоо, дасгалын түүх, зөвшөөрлөө энэ утаснаас устгана. Апп анх нээсэн шигээ дахин эхэлнэ.</p>
+      <button class="btn" data-act="wipe">${confirmWipe ? "Дахин дарж баталгаажуулна уу" : "Бүх мэдээллээ устгах"}</button>
+    </div>`;
 }
 
 // ---- Зурах --------------------------------------------------------------------------------------------------------
 function renderTabs(name) {
   tabs.classList.toggle("hidden", name === "workout");
-  const active = name === "summary" ? "start" : name;
+  const active = name === "summary" ? "start" : name === "terms" ? "help" : name;
   tabs.innerHTML = TABS.map(([key, label, icon]) =>
     `<button class="${key === active ? "on" : ""}" data-tab="${key}">${icon}<span>${label}</span></button>`).join("");
 }
@@ -260,12 +322,22 @@ function pageHtml(r) {
   if (r.name === "settings") return settingsPage();
   if (r.name === "summary") return summaryPage();
   if (r.name === "history") return historyPage();
+  if (r.name === "terms") return termsPage();
   return helpPage();
 }
 
 /** animate=false: ижил хуудсыг шинэчлэх (сонголт солигдох) үед гүйлгэсэн байрлалыг хадгална. */
 function render(animate = true) {
   const r = route();
+  if (needConsent()) {   // хаягт аль ч хуудас байсан (жишээ нь #/workout) зөвшөөрөл аваагүй бол нээхгүй
+    const old = screen.querySelector("[data-scroll]");
+    const scroll = old && !animate ? old.scrollTop : 0;
+    tabs.classList.add("hidden");
+    syncBars();
+    screen.innerHTML = `<div class="page consent" ${animate ? "" : 'style="animation:none"'}>${consentPage()}</div>`;
+    if (scroll) screen.querySelector("[data-scroll]").scrollTop = scroll;
+    return;
+  }
   if (workout && r.name !== "workout") {   // «Буцах» товчоор дасгалаас гарсан
     const result = workout.abandon();
     workout = null;
@@ -371,6 +443,33 @@ const actions = {
     confirmClear = !confirmClear;
     render(false);
   },
+  agree(el) {   // хуудсыг дахин зурахгүй: гүйлгэсэн байрлал хэвээр үлдэнэ
+    agreed = !agreed;
+    el.classList.toggle("on", agreed);
+    el.setAttribute("aria-checked", String(agreed));
+    screen.querySelector('[data-act="accept"]').disabled = !agreed;
+  },
+  accept() {
+    if (!agreed) return;
+    acceptTerms(TERMS_VERSION);
+    agreed = false;
+    render();
+  },
+  terms: () => go("#/terms"),
+  leaveTerms() {   // апп дотроос орж ирсэн бол өмнөх хуудас руу, хаягаар шууд нээсэн бол Заавар руу
+    if (moves > 0) history.back();
+    else go("#/help", true);
+  },
+  wipe() {
+    if (!confirmWipe) {
+      confirmWipe = true;
+      render(false);
+      return;
+    }
+    wipeAll();
+    history.replaceState(null, "", location.pathname + location.search);   // эхлэх хуудас руу
+    location.reload();   // тохиргоо анхны утгаараа, зөвшөөрлийн хуудаснаас дахин эхэлнэ
+  },
 };
 
 screen.addEventListener("click", (e) => {
@@ -379,6 +478,7 @@ screen.addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]");
   if (!el || !actions[el.dataset.act]) return;
   if (el.dataset.act !== "clear") confirmClear = false;
+  if (el.dataset.act !== "wipe") confirmWipe = false;
   actions[el.dataset.act](el);
 });
 
@@ -390,6 +490,8 @@ tabs.addEventListener("click", (e) => {
 
 window.addEventListener("hashchange", () => {
   confirmClear = false;
+  confirmWipe = false;
+  moves += 1;
   render();
 });
 
